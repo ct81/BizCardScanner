@@ -1,8 +1,8 @@
 {
 "icon": "https://api.iconify.design/tabler/scan.svg?color=%23FFFFFF",
-"title": "Business Card Scanner v1.0.0",
+"title": "Business Leads v1.0.0",
 "url": "https://ct81.github.io/BizCardScanner/index.html",
-"description": "Business Card Scanner Extension",
+"description": "Engage with potential clients",
 "configCommand": "do_config",
 "enabled": true
 }
