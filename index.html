@@ -751,6 +751,18 @@
     let lastJsonData = null;
     let lastRawText = '';
 
+    let autoStableFrames = 0;
+    let previousDetectionImage = null;
+    let lastAutoCaptureTime = 0;
+
+    const AUTO_SCAN_INTERVAL = 500;
+    const AUTO_STABLE_REQUIRED = 3;
+    const AUTO_CAPTURE_COOLDOWN = 4000;
+
+    const MIN_CONTRAST = 18;
+    const MIN_SHARPNESS = 10;
+    const MAX_FRAME_DIFFERENCE = 15;
+
     // Google Apps Script Web App URL - REPLACE WITH YOUR OWN
     const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwZJonIwqV1avPnY7JvlyJxtUlRLuxs_LpX2N3uOR95vysqYnadywsfcqATFLj4NhdqkA/exec';
 
@@ -1778,45 +1790,217 @@
       }
     }
 
-    function detectOcrCard() {
-      if (!stream || !video.videoWidth || currentMode !== 'ocr') {
-        if (currentMode !== 'ocr') return;
-        cardFrame.classList.remove('detected');
-        scanline.classList.remove('ocr-detected');
-        return;
+    // ============================================================
+    //  🔍 OCR FRAME QUALITY ANALYSIS
+    // ============================================================
+    function analyzeOcrFrame(ctx, vw, vh) {
+
+      // Use the same approximate area as the visible card frame
+      const frame = getFrameCrop();
+
+      const x = Math.max(0, Math.floor(frame.left));
+      const y = Math.max(0, Math.floor(frame.top));
+
+      const width = Math.min(
+        Math.floor(frame.width),
+        vw - x
+      );
+
+      const height = Math.min(
+        Math.floor(frame.height),
+        vh - y
+      );
+
+      if (width <= 0 || height <= 0) {
+        return {
+          avg: 0,
+          contrast: 0,
+          sharpness: 0,
+          imageData: null
+        };
       }
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      canvas.width = vw;
-      canvas.height = vh;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, vw, vh);
-      const cx = Math.floor(vw / 2);
-      const cy = Math.floor(vh / 2);
-      const sampleSize = 40;
-      const half = Math.floor(sampleSize / 2);
-      const imageData = ctx.getImageData(cx - half, cy - half, sampleSize, sampleSize);
+
+      const imageData = ctx.getImageData(
+        x,
+        y,
+        width,
+        height
+      );
+
       const data = imageData.data;
-      let sum = 0, sumSq = 0;
-      const len = data.length;
-      for (let i = 0; i < len; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
-        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      const pixelCount = width * height;
+
+      let sum = 0;
+      let sumSq = 0;
+
+      // ------------------------------------------------------------
+      // Brightness + contrast
+      // ------------------------------------------------------------
+
+      for (let i = 0; i < data.length; i += 4) {
+
+        const gray =
+          0.299 * data[i] +
+          0.587 * data[i + 1] +
+          0.114 * data[i + 2];
+
         sum += gray;
         sumSq += gray * gray;
       }
-      const avg = sum / (len / 4);
-      const variance = (sumSq / (len / 4)) - (avg * avg);
-      const contrast = Math.sqrt(variance);
-      const isCard = (contrast > 18 && avg > 50 && avg < 210);
-      if (isCard) {
-        cardFrame.classList.add('detected');
-        scanline.classList.add('ocr-detected');
-        detectBadge.textContent = '🟢 card detected';
-      } else {
+
+      const avg = sum / pixelCount;
+
+      const variance =
+        (sumSq / pixelCount) -
+        (avg * avg);
+
+      const contrast = Math.sqrt(
+        Math.max(0, variance)
+      );
+
+      // ------------------------------------------------------------
+      // Sharpness
+      //
+      // Calculate horizontal + vertical edge strength.
+      // This is much better for OCR than the old sparse sampling.
+      // ------------------------------------------------------------
+
+      let sharpness = 0;
+
+      for (let yy = 1; yy < height - 1; yy++) {
+
+        for (let xx = 1; xx < width - 1; xx++) {
+
+          const index =
+            (yy * width + xx) * 4;
+
+          const leftIndex =
+            (yy * width + (xx - 1)) * 4;
+
+          const rightIndex =
+            (yy * width + (xx + 1)) * 4;
+
+          const topIndex =
+            ((yy - 1) * width + xx) * 4;
+
+          const bottomIndex =
+            ((yy + 1) * width + xx) * 4;
+
+          const center =
+            0.299 * data[index] +
+            0.587 * data[index + 1] +
+            0.114 * data[index + 2];
+
+          const left =
+            0.299 * data[leftIndex] +
+            0.587 * data[leftIndex + 1] +
+            0.114 * data[leftIndex + 2];
+
+          const right =
+            0.299 * data[rightIndex] +
+            0.587 * data[rightIndex + 1] +
+            0.114 * data[rightIndex + 2];
+
+          const top =
+            0.299 * data[topIndex] +
+            0.587 * data[topIndex + 1] +
+            0.114 * data[topIndex + 2];
+
+          const bottom =
+            0.299 * data[bottomIndex] +
+            0.587 * data[bottomIndex + 1] +
+            0.114 * data[bottomIndex + 2];
+
+          const horizontal =
+            Math.abs(right - left);
+
+          const vertical =
+            Math.abs(bottom - top);
+
+          sharpness +=
+            horizontal +
+            vertical;
+        }
+      }
+
+      sharpness /= pixelCount;
+
+      return {
+        avg,
+        contrast,
+        sharpness,
+        imageData,
+        x,
+        y,
+        width,
+        height
+      };
+    }
+
+    function detectOcrCard() 
+    {
+      if (!stream || !video.videoWidth || currentMode !== 'ocr') {
+
+        if (currentMode !== 'ocr') return;
+
         cardFrame.classList.remove('detected');
         scanline.classList.remove('ocr-detected');
-        detectBadge.textContent = '🔵 OCR mode';
+
+        return;
+      }
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+
+      canvas.width = vw;
+      canvas.height = vh;
+
+      const ctx = canvas.getContext('2d', {
+        willReadFrequently: true
+      });
+
+      ctx.drawImage(
+        video,
+        0,
+        0,
+        vw,
+        vh
+      );
+
+      const analysis =
+        analyzeOcrFrame(ctx, vw, vh);
+
+      const goodBrightness =
+        analysis.avg > 40 &&
+        analysis.avg < 225;
+
+      const goodContrast =
+        analysis.contrast > MIN_CONTRAST;
+
+      const goodSharpness =
+        analysis.sharpness > MIN_SHARPNESS;
+
+      const qualityGood =
+        goodBrightness &&
+        goodContrast &&
+        goodSharpness;
+
+      if (qualityGood) {
+
+        cardFrame.classList.add('detected');
+        scanline.classList.add('ocr-detected');
+
+        detectBadge.textContent =
+          '🟢 card detected';
+
+      } else {
+
+        cardFrame.classList.remove('detected');
+        scanline.classList.remove('ocr-detected');
+
+        detectBadge.textContent =
+          '🔵 OCR mode';
       }
     }
 
@@ -2007,41 +2191,219 @@
     //  🔄 OCR AUTO SCAN FUNCTIONS
     // ============================================================
     function startAutoScan() {
+
       if (isAutoScanning) return;
       if (currentMode !== 'ocr') return;
+
       isAutoScanning = true;
+
       scanAuto.checked = true;
       scanManual.checked = false;
-      scanModeStatus.textContent = 'Mode: Auto (OCR)';
+
+      scanModeStatus.textContent =
+        'Mode: Auto (OCR)';
+
       scanBtn.style.display = 'none';
-      setStatus('🔄 OCR Auto-scanning... will capture when card is detected');
-      
+
+      autoStableFrames = 0;
+      previousDetectionImage = null;
+      lastAutoCaptureTime = 0;
+
+      setStatus(
+        '🔄 OCR Auto-scanning... hold card steady'
+      );
+
       autoScanInterval = setInterval(async () => {
-        if (!isAutoScanning || isScanning) return;
-        if (!stream || !video.videoWidth) return;
-        
-        const vw = video.videoWidth, vh = video.videoHeight;
-        canvas.width = vw; canvas.height = vh;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, vw, vh);
-        const cx = Math.floor(vw / 2), cy = Math.floor(vh / 2);
-        const sampleSize = 40, half = Math.floor(sampleSize / 2);
-        const imageData = ctx.getImageData(cx - half, cy - half, sampleSize, sampleSize);
-        const data = imageData.data;
-        let sum = 0, sumSq = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-          sum += gray; sumSq += gray * gray;
+
+        if (!isAutoScanning || isScanning) {
+          return;
         }
-        const avg = sum / (data.length / 4);
-        const variance = (sumSq / (data.length / 4)) - (avg * avg);
-        const contrast = Math.sqrt(variance);
-        const isCard = (contrast > 18 && avg > 50 && avg < 210);
-        
-        if (isCard) {
-          await captureAndOCR();
+
+        if (!stream || !video.videoWidth) {
+          return;
         }
-      }, 1500);
+
+        const now = Date.now();
+
+        // Prevent repeated OCR
+        if (
+          now - lastAutoCaptureTime <
+          AUTO_CAPTURE_COOLDOWN
+        ) {
+          return;
+        }
+
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+
+        canvas.width = vw;
+        canvas.height = vh;
+
+        const ctx = canvas.getContext('2d', {
+          willReadFrequently: true
+        });
+
+        ctx.drawImage(
+          video,
+          0,
+          0,
+          vw,
+          vh
+        );
+
+        const analysis =
+          analyzeOcrFrame(ctx, vw, vh);
+
+        // ----------------------------------------------------------
+        // Quality test
+        // ----------------------------------------------------------
+
+        const goodBrightness =
+          analysis.avg > 40 &&
+          analysis.avg < 225;
+
+        const goodContrast =
+          analysis.contrast > MIN_CONTRAST;
+
+        const goodSharpness =
+          analysis.sharpness > MIN_SHARPNESS;
+
+        if (
+          !goodBrightness ||
+          !goodContrast ||
+          !goodSharpness
+        ) {
+
+          autoStableFrames = 0;
+          previousDetectionImage = null;
+
+          cardFrame.classList.remove('detected');
+          scanline.classList.remove('ocr-detected');
+
+          detectBadge.textContent =
+            '🔵 Move / focus card';
+
+          return;
+        }
+
+        // ----------------------------------------------------------
+        // Compare current frame with previous frame
+        //
+        // We want the card to STOP MOVING.
+        // ----------------------------------------------------------
+
+        let frameDifference = 999;
+
+        if (previousDetectionImage) {
+
+          const currentData =
+            analysis.imageData.data;
+
+          const previousData =
+            previousDetectionImage.data;
+
+          const length =
+            Math.min(
+              currentData.length,
+              previousData.length
+            );
+
+          let difference = 0;
+
+          // Don't compare every pixel.
+          // Every 4th pixel is enough for stability detection.
+          for (
+            let i = 0;
+            i < length;
+            i += 16
+          ) {
+
+            const currentGray =
+              0.299 * currentData[i] +
+              0.587 * currentData[i + 1] +
+              0.114 * currentData[i + 2];
+
+            const previousGray =
+              0.299 * previousData[i] +
+              0.587 * previousData[i + 1] +
+              0.114 * previousData[i + 2];
+
+            difference +=
+              Math.abs(
+                currentGray -
+                previousGray
+              );
+          }
+
+          frameDifference =
+            difference /
+            Math.max(1, length / 16);
+        }
+
+        // Save current frame for next comparison
+        previousDetectionImage =
+          analysis.imageData;
+
+        // ----------------------------------------------------------
+        // Stable frame detection
+        // ----------------------------------------------------------
+
+        if (
+          frameDifference <
+          MAX_FRAME_DIFFERENCE
+        ) {
+
+          autoStableFrames++;
+
+        } else {
+
+          autoStableFrames = 0;
+        }
+
+        cardFrame.classList.add('detected');
+        scanline.classList.add('ocr-detected');
+
+        detectBadge.textContent =
+          `🟢 Card stable ${autoStableFrames}/${AUTO_STABLE_REQUIRED}`;
+
+        // ----------------------------------------------------------
+        // Capture only after stable
+        // ----------------------------------------------------------
+
+        if (
+          autoStableFrames >=
+          AUTO_STABLE_REQUIRED
+        ) {
+
+          autoStableFrames = 0;
+
+          previousDetectionImage = null;
+
+          lastAutoCaptureTime =
+            Date.now();
+
+          setStatus(
+            '🔍 Card stable — capturing high-quality OCR...'
+          );
+
+          try {
+
+            await captureAndOCR();
+
+          } catch (error) {
+
+            console.error(
+              'Auto OCR error:',
+              error
+            );
+
+            setStatus(
+              '⚠️ OCR failed — hold card steady and try again'
+            );
+          }
+        }
+
+      }, AUTO_SCAN_INTERVAL);
     }
 
     function stopAutoScan() {
