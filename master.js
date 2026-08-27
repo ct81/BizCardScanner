@@ -33,12 +33,12 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         });
 
         API_Ext.ui.setMenu({
-            title: "AI Safety Sentinel"
+            title: "BizCard Scanner"
             , icon: "https://components.connect.trimble.com/trimble-connect-project-workspace-api/logo192.png"
             , command: "main_nav_menu_clicked"
             , subMenus: [
                 {
-                    title: "BizCard Scanner",
+                    title: "Scanner",
                     icon: "https://components.connect.trimble.com/trimble-connect-project-workspace-api/logo192.png",
                     command: "submenu_1_clicked",
                 }
