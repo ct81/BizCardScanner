@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Card OCR / QR Scanner - Address + Phone</title>
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+  <script src="master.js" type="module" defer></script>
   <!-- Tesseract.js from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <!-- jsQR for QR code decoding -->
@@ -578,6 +580,19 @@
   </style>
 </head>
 <body>
+
+    <div>
+        <input type="hidden" id="hdnProjectDetail" />
+        <input type="hidden" id="hdnProjectName" />
+        <input type="hidden" id="hdnUserId" />
+        <input type="hidden" id="hdnUserEmail" />
+        <input type="hidden" id="hdnUserFirstName" />
+        <input type="hidden" id="hdnUserLastName" />
+        <input type="hidden" id="hdnUserDetail" />
+        <input type="hidden" id="hdnAccessTokenDetail" />
+        <input type="hidden" id="hdnLicenseJson" />
+        <input type="hidden" ID="hdnDefaultModel" />
+    </div>
 
 <div class="container">
   <h1>🪪 Card Scanner <small>Address + Phone</small></h1>
