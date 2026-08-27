@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             , command: "main_nav_menu_clicked"
             , subMenus: [
                 {
-                    title: "Scanner",
+                    title: "Scan",
                     icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/scan.svg",
                     command: "submenu_1_clicked",
                 }
