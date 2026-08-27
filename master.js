@@ -33,12 +33,12 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         });
 
         API_Ext.ui.setMenu({
-            title: "BizCard Scanner"
+            title: "Business Leads"
             , icon: "https://api.iconify.design/tabler/scan.svg?color=%23FFFFFF"
             , command: "main_nav_menu_clicked"
             , subMenus: [
                 {
-                    title: "Scan",
+                    title: "Capture",
                     icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/scan.svg",
                     command: "submenu_1_clicked",
                 }
