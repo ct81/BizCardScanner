@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Card OCR / QR Scanner - Address + Phone</title>
+  <title>BizCard Scanner</title>
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
   <script src="master.js" type="module" defer></script>
   <!-- Tesseract.js from CDN -->
@@ -595,15 +595,15 @@
     </div>
 
 <div class="container">
-  <h1>🪪 Card Scanner <small>Address + Phone</small></h1>
+  <h1>🪪 BizCard Scanner <small></small></h1>
   <div class="sub">
-    <span>📸 M=Mobile, T=Tel/Phone, F=Fax, E=Email detection</span>
+    <!-- <span>📸 M=Mobile, T=Tel/Phone, F=Fax, E=Email detection</span> -->
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
 
   <div class="mode-toggle">
     <input type="radio" name="scanMode" id="modeOcr" value="ocr" checked>
-    <label for="modeOcr">📝 OCR (Name Card)</label>
+    <label for="modeOcr">📝 eCard</label>
     <input type="radio" name="scanMode" id="modeQr" value="qr">
     <label for="modeQr">📱 QR Code</label>
     <input type="radio" name="scanMode" id="modePhoto" value="photo">
@@ -656,7 +656,7 @@
       </div>
     </div>
     <div id="output"></div>
-    <div class="status-tip">
+    <div class="status-tip" hidden>
       <span>⚡</span> <span id="statusText">Ready</span>
       <span style="margin-left:auto;font-size:0.75rem;color:#8b9bb0;" id="scanModeStatus">Mode: Manual</span>
     </div>
