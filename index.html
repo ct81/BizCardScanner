@@ -638,9 +638,9 @@
   </div>
 
   <div class="controls">
-    <button class="btn btn-primary" id="scanBtn">📷 Scan now</button>
+    <button class="btn btn-primary" id="scanBtn">📷 Scan</button>
     <button class="btn btn-photo" id="photoBtn" style="display:none;">📸 Take Photo</button>
-    <button class="btn btn-save" id="saveBtn">💾 Save to Sheet</button>
+    <button class="btn btn-save" id="saveBtn">💾 Save</button>
     <button class="btn btn-outline" id="resetBtn">↻ Clear</button>
     <button class="btn btn-outline" id="copyBtn" style="flex:0.5;">📋 Copy</button>
   </div>
@@ -1964,6 +1964,7 @@
         const name = cardData.name || '';
         const email = cardData.email || '';
         if (isValidName(name) && isValidEmail(email)) {
+          saveToGoogleSheet();
           showPopup(name, email, base64);
         }
         
@@ -2151,6 +2152,7 @@
         wordCount.textContent = '1 field';
         setStatus(`✅ Photo captured! Base64 length: ${base64.length} chars`);
         
+        saveToGoogleSheet();
         showPopup('Photo', 'Captured', base64);
         
       } catch (err) {
@@ -2290,6 +2292,7 @@
           const name = cardData.name || '';
           const email = cardData.email || '';
           if (isValidName(name) && isValidEmail(email)) {
+            saveToGoogleSheet();
             showPopup(name, email, base64);
           }
         } else {
