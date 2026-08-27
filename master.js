@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             , subMenus: [
                 {
                     title: "Scanner",
-                    icon: "https://components.connect.trimble.com/trimble-connect-project-workspace-api/logo192.png",
+                    icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/scan.svg",
                     command: "submenu_1_clicked",
                 }
                 // , {
