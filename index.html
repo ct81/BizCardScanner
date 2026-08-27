@@ -1,32 +1,2369 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Website</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Card OCR / QR Scanner - Address + Phone</title>
+  <!-- Tesseract.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- jsQR for QR code decoding -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4fa;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .container {
+      max-width: 750px;
+      width: 100%;
+      background: white;
+      border-radius: 36px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.10);
+      padding: 24px 22px 32px;
+    }
+    h1 {
+      font-size: 1.9rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: #0b1b33;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    h1 small {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: #4a5b6e;
+      margin-left: auto;
+      background: #eef2f7;
+      padding: 4px 14px;
+      border-radius: 40px;
+    }
+    .sub {
+      color: #3d4e63;
+      margin-bottom: 22px;
+      padding-left: 14px;
+      border-left: 4px solid #3b82f6;
+      background: #f8fafc;
+      border-radius: 0 12px 12px 0;
+      line-height: 1.5;
+      font-weight: 400;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 12px;
+    }
+    .mode-toggle {
+      display: flex;
+      gap: 4px;
+      background: #eef2f7;
+      padding: 4px;
+      border-radius: 60px;
+      margin-bottom: 16px;
+      border: 1px solid #dce3ed;
+    }
+    .mode-toggle label {
+      flex: 1;
+      text-align: center;
+      padding: 10px 16px;
+      border-radius: 40px;
+      font-weight: 550;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: 0.2s;
+      color: #4a5b6e;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .mode-toggle input[type="radio"] { display: none; }
+    .mode-toggle input[type="radio"]:checked + label {
+      background: white;
+      color: #0b1b33;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px #cbd5e1;
+    }
+    .mode-toggle label:hover { background: rgba(255,255,255,0.5); }
+    .badge-detect {
+      background: #1f2e4a;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 14px;
+      border-radius: 40px;
+      letter-spacing: 0.3px;
+      margin-left: 6px;
+    }
+    .badge-detect.detected { background: #0b3b2a; color: #6ee7b7; }
+    .scanner-box {
+      background: #0d1522;
+      border-radius: 28px;
+      padding: 12px;
+      margin-bottom: 22px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #0a111d;
+      border-radius: 18px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #0f1625;
+    }
+    #canvas, #croppedCanvas { display: none; }
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 100px;
-            background: #f5f5f5;
-        }
+    .card-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 88%;
+      height: 72%;
+      transform: translate(-50%, -50%);
+      border: 3px solid #3b82f6;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.25), inset 0 0 30px rgba(59, 130, 246, 0.05);
+      background: rgba(59, 130, 246, 0.04);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .card-frame .corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: #3b82f6;
+      border-style: solid;
+      border-width: 0;
+      transition: border-color 0.3s;
+    }
+    .card-frame .corner.tl { top: 8px; left: 8px; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+    .card-frame .corner.tr { top: 8px; right: 8px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+    .card-frame .corner.bl { bottom: 8px; left: 8px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+    .card-frame .corner.br { bottom: 8px; right: 8px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+    .card-frame.detected {
+      border-color: #34d399 !important;
+      box-shadow: 0 0 40px rgba(52, 211, 153, 0.35), inset 0 0 30px rgba(52, 211, 153, 0.08);
+    }
+    .card-frame.detected .corner { border-color: #34d399 !important; }
 
-        h1 {
-            color: #333;
-        }
+    .qr-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 60%;
+      height: 75%;
+      transform: translate(-50%, -50%);
+      border: 3px dashed #f59e0b;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+      background: rgba(245, 158, 11, 0.04);
+      display: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .qr-frame .corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: #f59e0b;
+      border-style: solid;
+      border-width: 0;
+      transition: border-color 0.3s;
+    }
+    .qr-frame .corner.tl { top: 8px; left: 8px; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+    .qr-frame .corner.tr { top: 8px; right: 8px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+    .qr-frame .corner.bl { bottom: 8px; left: 8px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+    .qr-frame .corner.br { bottom: 8px; right: 8px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+    .qr-frame.detected {
+      border-color: #34d399 !important;
+      box-shadow: 0 0 40px rgba(52, 211, 153, 0.35), inset 0 0 30px rgba(52, 211, 153, 0.08);
+    }
+    .qr-frame.detected .corner { border-color: #34d399 !important; }
 
-        p {
-            color: #666;
-        }
-    </style>
+    .scanline {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 70%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+      transform: translate(-50%, -50%);
+      border-radius: 20px;
+      box-shadow: 0 0 20px #3b82f6;
+      animation: scanmove 2.6s ease-in-out infinite alternate;
+      opacity: 0.5;
+      pointer-events: none;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .scanline.ocr-detected {
+      background: linear-gradient(90deg, transparent, #34d399, #6ee7b7, #34d399, transparent) !important;
+      box-shadow: 0 0 20px #34d399 !important;
+    }
+    .scanline.qr-scanline {
+      background: linear-gradient(90deg, transparent, #f59e0b, #fbbf24, #f59e0b, transparent);
+      box-shadow: 0 0 20px #f59e0b;
+    }
+    .scanline.qr-scanline.detected {
+      background: linear-gradient(90deg, transparent, #34d399, #6ee7b7, #34d399, transparent) !important;
+      box-shadow: 0 0 20px #34d399 !important;
+    }
+    @keyframes scanmove {
+      0% { top: 18%; opacity: 0.25; }
+      100% { top: 82%; opacity: 0.7; }
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 16px 0 20px;
+      justify-content: center;
+    }
+    .btn {
+      background: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 60px;
+      font-weight: 550;
+      font-size: 1rem;
+      color: #0b1b33;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02), 0 0 0 1px #dce3ed;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: 0.15s;
+      flex: 1 1 auto;
+      justify-content: center;
+      background: #fafcff;
+    }
+    .btn-primary {
+      background: #0b3b2a;
+      color: white;
+      box-shadow: 0 8px 18px rgba(11, 59, 42, 0.3);
+      border: none;
+    }
+    .btn-primary:active { transform: scale(0.96); background: #072b1e; }
+    .btn-primary:disabled { opacity: 0.5; transform: none; pointer-events: none; }
+    .btn-outline { background: transparent; border: 1px solid #cbd5e1; }
+    .btn:active { transform: scale(0.96); }
+    .btn-photo {
+      background: #1a3a7a;
+      color: white;
+      box-shadow: 0 8px 18px rgba(26, 58, 122, 0.3);
+      border: none;
+    }
+    .btn-photo:active { transform: scale(0.96); background: #122b5e; }
+    .btn-photo:disabled { opacity: 0.5; transform: none; pointer-events: none; }
+    .btn-save {
+      background: #065f46;
+      color: white;
+      box-shadow: 0 8px 18px rgba(6, 95, 70, 0.3);
+      border: none;
+    }
+    .btn-save:active { transform: scale(0.96); background: #044e3a; }
+    .btn-save:disabled { opacity: 0.5; transform: none; pointer-events: none; }
+
+    .scan-toggle-group {
+      display: flex;
+      gap: 4px;
+      background: #eef2f7;
+      padding: 4px;
+      border-radius: 60px;
+      margin-bottom: 16px;
+      border: 1px solid #dce3ed;
+      flex: 1;
+    }
+    .scan-toggle-group label {
+      flex: 1;
+      text-align: center;
+      padding: 8px 16px;
+      border-radius: 40px;
+      font-weight: 550;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.2s;
+      color: #4a5b6e;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .scan-toggle-group input[type="radio"] { display: none; }
+    .scan-toggle-group input[type="radio"]:checked + label {
+      background: white;
+      color: #0b1b33;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px #cbd5e1;
+    }
+    .scan-toggle-group label:hover { background: rgba(255,255,255,0.5); }
+
+    .result-panel {
+      background: #f8fafd;
+      border-radius: 22px;
+      padding: 20px;
+      margin-top: 8px;
+      border: 1px solid #e9edf3;
+    }
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .result-header h3 {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #1e2b3d;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      background: #d4e2fc;
+      color: #1a3a7a;
+      padding: 2px 14px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    #output {
+      background: #f1f5f9;
+      border-radius: 16px;
+      padding: 16px 18px;
+      min-height: 120px;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #0b1b33;
+      border: 1px solid #e2e8f0;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    #output:empty::before {
+      content: '📇  Select a mode and scan — JSON will appear here';
+      color: #8b9bb0;
+      font-style: italic;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .status-tip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: #3b4d62;
+      margin-top: 14px;
+      background: #eef4fa;
+      padding: 8px 18px;
+      border-radius: 60px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(52, 211, 153, 0.15);
+      border-top: 2px solid #34d399;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 4px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .auto-badge {
+      background: #1a3a3a;
+      color: #6ee7b7;
+      font-size: 0.65rem;
+      padding: 2px 10px;
+      border-radius: 40px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+    .json-key { color: #0b4b6f; font-weight: 600; }
+    .json-string { color: #0b6f4b; }
+    .json-punctuation { color: #4a5b6e; }
+    .raw-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #4a5b6e;
+      cursor: pointer;
+      user-select: none;
+    }
+    .raw-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #3b82f6;
+      cursor: pointer;
+    }
+    .scan-mode-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #4a5b6e;
+    }
+    .scan-mode-label .active-mode {
+      font-weight: 600;
+      color: #0b1b33;
+    }
+
+    /* Popup styles */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .popup-overlay.active {
+      display: flex;
+    }
+    .popup-box {
+      background: white;
+      border-radius: 24px;
+      padding: 32px 28px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .popup-box .icon {
+      font-size: 3rem;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .popup-box h3 {
+      text-align: center;
+      font-size: 1.3rem;
+      color: #0b1b33;
+      margin-bottom: 8px;
+    }
+    .popup-box p {
+      text-align: center;
+      color: #4a5b6e;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .popup-box .details {
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      color: #0b1b33;
+      border: 1px solid #e2e8f0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .popup-box .details .label {
+      color: #4a5b6e;
+      font-weight: 500;
+    }
+    .popup-box .details .value {
+      word-break: break-all;
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+    .popup-box .validation-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 0.85rem;
+    }
+    .popup-box .validation-status .check { color: #0b6f4b; }
+    .popup-box .validation-status .cross { color: #b91c1c; }
+    .popup-box .image-preview {
+      margin: 12px 0 16px 0;
+      text-align: center;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .popup-box .image-preview img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 1px solid #dce3ed;
+    }
+    .popup-box .image-preview .image-label {
+      font-size: 0.7rem;
+      color: #8b9bb0;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .popup-box .btn-close {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #0b3b2a;
+      color: white;
+      border: none;
+      border-radius: 60px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .popup-box .btn-close:hover {
+      background: #072b1e;
+    }
+    .popup-box .btn-close:active {
+      transform: scale(0.96);
+    }
+    .popup-box .btn-copy-base64 {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: #eef2f7;
+      color: #0b1b33;
+      border: 1px solid #dce3ed;
+      border-radius: 60px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-bottom: 8px;
+    }
+    .popup-box .btn-copy-base64:hover {
+      background: #e2e8f0;
+    }
+    .popup-box .btn-copy-base64:active {
+      transform: scale(0.96);
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 14px; }
+      .btn { padding: 10px 14px; font-size: 0.9rem; }
+      .mode-toggle label { font-size: 0.85rem; padding: 8px 12px; }
+      #output { font-size: 0.8rem; padding: 12px 14px; min-height: 100px; max-height: 300px; }
+      .controls { flex-direction: column; }
+      .controls .btn { flex: 1; }
+      .popup-box { padding: 20px 16px; }
+      .popup-box .details { max-height: 100px; }
+    }
+  </style>
 </head>
-
 <body>
 
-    <h1>Hello World!</h1>
-    <p>My first public GitHub website.</p>
+<div class="container">
+  <h1>🪪 Card Scanner <small>Address + Phone</small></h1>
+  <div class="sub">
+    <span>📸 M=Mobile, T=Tel/Phone, F=Fax, E=Email detection</span>
+    <span class="badge-detect" id="detectBadge">⚪ ready</span>
+  </div>
 
+  <div class="mode-toggle">
+    <input type="radio" name="scanMode" id="modeOcr" value="ocr" checked>
+    <label for="modeOcr">📝 OCR (Name Card)</label>
+    <input type="radio" name="scanMode" id="modeQr" value="qr">
+    <label for="modeQr">📱 QR Code</label>
+    <input type="radio" name="scanMode" id="modePhoto" value="photo">
+    <label for="modePhoto">📸 Photo</label>
+  </div>
+
+  <!-- Scan Mode Toggle: Manual or Auto (hidden for Photo mode) -->
+  <div class="scan-toggle-group" id="scanToggleGroup">
+    <input type="radio" name="scanType" id="scanManual" value="manual" checked>
+    <label for="scanManual">👆 Manual</label>
+    <input type="radio" name="scanType" id="scanAuto" value="auto">
+    <label for="scanAuto">🔄 Auto</label>
+  </div>
+
+  <div class="scanner-box">
+    <div class="video-wrapper">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <canvas id="croppedCanvas"></canvas>
+      <div class="detect-overlay">
+        <div class="card-frame" id="cardFrame">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+        </div>
+        <div class="qr-frame" id="qrFrame">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+        </div>
+        <div class="scanline" id="scanline"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="scanBtn">📷 Scan now</button>
+    <button class="btn btn-photo" id="photoBtn" style="display:none;">📸 Take Photo</button>
+    <button class="btn btn-save" id="saveBtn">💾 Save to Sheet</button>
+    <button class="btn btn-outline" id="resetBtn">↻ Clear</button>
+    <button class="btn btn-outline" id="copyBtn" style="flex:0.5;">📋 Copy</button>
+  </div>
+
+  <div class="result-panel">
+    <div class="result-header">
+      <h3 id="resultTitle">📋 JSON Output</h3>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span class="badge" id="wordCount">0 fields</span>
+        <label class="raw-toggle">
+          <input type="checkbox" id="showRawToggle"> Show Raw Text
+        </label>
+      </div>
+    </div>
+    <div id="output"></div>
+    <div class="status-tip">
+      <span>⚡</span> <span id="statusText">Ready</span>
+      <span style="margin-left:auto;font-size:0.75rem;color:#8b9bb0;" id="scanModeStatus">Mode: Manual</span>
+    </div>
+  </div>
+</div>
+
+<!-- Popup -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-box">
+    <div class="icon">✅</div>
+    <h3>Card Scanned Successfully!</h3>
+    <p>The following information was extracted from the card:</p>
+    <div class="details">
+      <div class="validation-status"><span class="check">✅</span> <span id="popupName">Name: John Doe</span></div>
+      <div class="validation-status"><span class="check">✅</span> <span id="popupEmail">Email: john@example.com</span></div>
+    </div>
+    
+    <div class="image-preview">
+      <span class="image-label">📸 Scanned Image (Base64)</span>
+      <img id="popupImage" src="" alt="Scanned card">
+      <div style="margin-top:8px;font-size:0.7rem;color:#8b9bb0;word-break:break-all;max-height:60px;overflow-y:auto;" id="popupBase64Preview">Base64: ...</div>
+    </div>
+    
+    <button class="btn-copy-base64" id="copyBase64Btn">📋 Copy Base64 String</button>
+    <button class="btn-close" id="popupClose">OK, Got it!</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    "use strict";
+
+    // ============================================================
+    //  📦 TESSERACT CHECK
+    // ============================================================
+    if (typeof Tesseract === 'undefined') {
+      document.getElementById('statusText').textContent = '⚠️ Tesseract library not loaded. Please check your internet connection.';
+      document.getElementById('statusText').style.color = '#b91c1c';
+      console.error('Tesseract is not defined. Please check the CDN URL.');
+    } else {
+      console.log('✅ Tesseract loaded successfully');
+    }
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const croppedCanvas = document.getElementById('croppedCanvas');
+    const output = document.getElementById('output');
+    const scanBtn = document.getElementById('scanBtn');
+    const photoBtn = document.getElementById('photoBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const statusText = document.getElementById('statusText');
+    const wordCount = document.getElementById('wordCount');
+    const resultTitle = document.getElementById('resultTitle');
+    const detectBadge = document.getElementById('detectBadge');
+    const cardFrame = document.getElementById('cardFrame');
+    const qrFrame = document.getElementById('qrFrame');
+    const scanline = document.getElementById('scanline');
+    const modeOcr = document.getElementById('modeOcr');
+    const modeQr = document.getElementById('modeQr');
+    const modePhoto = document.getElementById('modePhoto');
+    const scanManual = document.getElementById('scanManual');
+    const scanAuto = document.getElementById('scanAuto');
+    const showRawToggle = document.getElementById('showRawToggle');
+    const scanModeStatus = document.getElementById('scanModeStatus');
+
+    // Popup elements
+    const popupOverlay = document.getElementById('popupOverlay');
+    const popupName = document.getElementById('popupName');
+    const popupEmail = document.getElementById('popupEmail');
+    const popupImage = document.getElementById('popupImage');
+    const popupBase64Preview = document.getElementById('popupBase64Preview');
+    const popupClose = document.getElementById('popupClose');
+    const copyBase64Btn = document.getElementById('copyBase64Btn');
+
+    let stream = null;
+    let isScanning = false;
+    let ocrWorker = null;
+    let detectionInterval = null;
+    let autoScanInterval = null;
+    let currentMode = 'ocr';
+    let currentScanType = 'manual';
+    let lastQrResult = '';
+    let isAutoScanning = false;
+    let lastBase64Image = '';
+    let isQrAutoScanning = false;
+    let qrAutoScanInterval = null;
+    let qrDetectedOnce = false;
+    let currentBase64Image = '';
+    
+    let lastJsonData = null;
+    let lastRawText = '';
+
+    // Google Apps Script Web App URL - REPLACE WITH YOUR OWN
+    const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+
+    function createEmptyCard() {
+      return { 
+        name: '', 
+        email: '', 
+        phone: '', 
+        mobile: '', 
+        fax: '', 
+        company: '', 
+        address: '', 
+        title: '',
+        base64Image: ''
+      };
+    }
+
+    function formatJson(jsonObj) {
+      const jsonStr = JSON.stringify(jsonObj, null, 2);
+      return jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+        .replace(/: "([^"]+)"/g, ': <span class="json-string">"$1"</span>')
+        .replace(/: (\d+)/g, ': <span class="json-string">$1</span>')
+        .replace(/(true|false|null)/g, '<span class="json-string">$1</span>');
+    }
+
+    // ============================================================
+    //  ✅ SAVE TO GOOGLE SHEETS
+    // ============================================================
+    async function saveToGoogleSheet() {
+      if (!lastJsonData) {
+        setStatus('⚠️ No data to save. Please scan a card first.');
+        return;
+      }
+
+      // Skip validation for photo mode
+      if (currentMode !== 'photo') {
+        const name = lastJsonData.name || '';
+        const email = lastJsonData.email || '';
+        if (!isValidName(name) || !isValidEmail(email)) {
+          setStatus('⚠️ Name or Email is invalid. Please scan again.');
+          return;
+        }
+      }
+
+      try {
+        setStatus('💾 Saving to Google Sheet...', true);
+        saveBtn.disabled = true;
+
+        const data = {
+          timestamp: new Date().toISOString(),
+          name: lastJsonData.name || '',
+          email: lastJsonData.email || '',
+          phone: lastJsonData.phone || '',
+          mobile: lastJsonData.mobile || '',
+          fax: lastJsonData.fax || '',
+          company: lastJsonData.company || '',
+          address: lastJsonData.address || '',
+          title: lastJsonData.title || '',
+          rawText: lastRawText || '',
+          json: JSON.stringify(lastJsonData),
+          base64Image: lastJsonData.base64Image || '',
+          mode: currentMode || 'unknown'
+        };
+
+        await fetch(GOOGLE_SHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+
+        const modeLabel = currentMode === 'photo' ? '📸 Photo' : '📇 Card';
+        setStatus(`✅ ${modeLabel} data saved to Google Sheet!`);
+        
+        showSaveConfirmation(lastJsonData.name || 'Photo', lastJsonData.email || '', currentMode);
+        
+      } catch (error) {
+        console.error('Save error:', error);
+        setStatus('❌ Error saving to Google Sheet: ' + error.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    function showSaveConfirmation(name, email, mode) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 2000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      `;
+      
+      const box = document.createElement('div');
+      box.style.cssText = `
+        background: white;
+        border-radius: 24px;
+        padding: 32px 28px;
+        max-width: 420px;
+        width: 100%;
+        box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+        animation: popIn 0.3s ease;
+        text-align: center;
+      `;
+      
+      const modeIcon = mode === 'photo' ? '📸' : '📇';
+      const modeLabel = mode === 'photo' ? 'Photo' : 'Card';
+      
+      box.innerHTML = `
+        <div style="font-size:3rem;margin-bottom:8px;">✅</div>
+        <h3 style="text-align:center;font-size:1.3rem;color:#0b1b33;margin-bottom:8px;">${modeIcon} ${modeLabel} Saved!</h3>
+        <p style="text-align:center;color:#4a5b6e;font-size:0.95rem;line-height:1.6;margin-bottom:8px;">
+          ${name ? `Name: <strong>${name}</strong><br>` : ''}
+          ${email ? `Email: <strong>${email}</strong>` : ''}
+          ${!name && !email ? 'Data saved successfully!' : ''}
+        </p>
+        <p style="text-align:center;color:#8b9bb0;font-size:0.8rem;margin-bottom:16px;">
+          The data has been saved to your Google Sheet.
+        </p>
+        <button onclick="this.closest('div[style]').parentElement.remove()" style="
+          display: block;
+          width: 100%;
+          padding: 12px;
+          background: #0b3b2a;
+          color: white;
+          border: none;
+          border-radius: 60px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: 0.2s;
+        ">OK</button>
+      `;
+      
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+        }
+      });
+    }
+
+    // ============================================================
+    //  ✅ VALIDATION FUNCTIONS
+    // ============================================================
+    function isValidEmail(email) {
+      if (!email || email.trim() === '') return false;
+      const trimmed = email.trim();
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(trimmed)) return false;
+      if (trimmed.includes(' ')) return false;
+      if (trimmed.startsWith('.') || trimmed.endsWith('.')) return false;
+      if (trimmed.includes('..')) return false;
+      const parts = trimmed.split('@');
+      if (parts.length !== 2) return false;
+      if (parts[0].length < 1 || parts[1].length < 3) return false;
+      return true;
+    }
+
+    function isValidName(name) {
+      if (!name || name.trim() === '') return false;
+      const trimmed = name.trim();
+      if (trimmed.length < 2 || trimmed.length > 50) return false;
+      if (!/[a-zA-Z]/.test(trimmed)) return false;
+      if (/^[\d\s\W]+$/.test(trimmed)) return false;
+      const words = trimmed.split(/\s+/);
+      if (words.length === 1 && trimmed.length < 3) return false;
+      const titleKeywords = ['manager', 'director', 'engineer', 'developer', 'analyst', 'consultant',
+        'specialist', 'coordinator', 'supervisor', 'president', 'ceo', 'cfo', 'cto', 'cio', 'cmo',
+        'vice president', 'vp', 'head', 'lead', 'principal', 'senior', 'junior', 'associate',
+        'assistant', 'executive', 'officer', 'administrator', 'architect', 'designer', 'planner',
+        'advisor', 'attorney', 'lawyer', 'physician', 'doctor', 'professor', 'teacher', 'instructor',
+        'trainer', 'coach', 'partner', 'founder', 'owner', 'chairman', 'board', 'member'];
+      const lowerName = trimmed.toLowerCase();
+      for (let title of titleKeywords) {
+        if (lowerName === title || lowerName === title + 's') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function showPopup(name, email, base64Image) {
+      popupName.textContent = `Name: ${name}`;
+      popupEmail.textContent = `Email: ${email}`;
+      
+      if (base64Image) {
+        popupImage.src = base64Image;
+        const shortBase64 = base64Image.length > 80 ? base64Image.substring(0, 80) + '...' : base64Image;
+        popupBase64Preview.textContent = `Base64: ${shortBase64}`;
+        lastBase64Image = base64Image;
+      } else {
+        popupImage.src = '';
+        popupBase64Preview.textContent = 'No image available';
+        lastBase64Image = '';
+      }
+      
+      popupOverlay.classList.add('active');
+    }
+
+    popupClose.addEventListener('click', () => {
+      popupOverlay.classList.remove('active');
+    });
+
+    popupOverlay.addEventListener('click', (e) => {
+      if (e.target === popupOverlay) {
+        popupOverlay.classList.remove('active');
+      }
+    });
+
+    copyBase64Btn.addEventListener('click', () => {
+      if (lastBase64Image) {
+        navigator.clipboard.writeText(lastBase64Image)
+          .then(() => {
+            const originalText = copyBase64Btn.textContent;
+            copyBase64Btn.textContent = '✅ Copied!';
+            setTimeout(() => {
+              copyBase64Btn.textContent = originalText;
+            }, 2000);
+          })
+          .catch(() => {
+            const textArea = document.createElement('textarea');
+            textArea.value = lastBase64Image;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            const originalText = copyBase64Btn.textContent;
+            copyBase64Btn.textContent = '✅ Copied!';
+            setTimeout(() => {
+              copyBase64Btn.textContent = originalText;
+            }, 2000);
+          });
+      } else {
+        copyBase64Btn.textContent = '⚠️ No image';
+        setTimeout(() => {
+          copyBase64Btn.textContent = '📋 Copy Base64 String';
+        }, 2000);
+      }
+    });
+
+    // ============================================================
+    //  Clear output function
+    // ============================================================
+    function clearOutput() {
+      output.textContent = '';
+      wordCount.textContent = '0 fields';
+      lastJsonData = null;
+      lastRawText = '';
+      currentBase64Image = '';
+    }
+
+    // ============================================================
+    //  📧 ENHANCED EMAIL DETECTION WITH E LABEL
+    // ============================================================
+    function extractEmail(text) {
+      if (!text) return '';
+      const clean = text.replace(/\s/g, ' ').trim();
+      
+      // Email labels including single letter 'E'
+      const emailLabels = ['email', 'e-mail', 'mail', '电邮', '邮箱', '邮件', 'Email', 'E-mail', 'Mail', 'E'];
+      
+      for (let label of emailLabels) {
+        // Pattern with colon: "E: john@example.com" or "Email: john@example.com"
+        const colonPattern = new RegExp(`(?:^|\\n|\\r)${label}[\\s:：]*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})`, 'i');
+        let match = clean.match(colonPattern);
+        if (match && match[1] && isValidEmail(match[1])) {
+          return match[1].trim();
+        }
+        
+        // Pattern with space: "E john@example.com" or "Email john@example.com"
+        const spacePattern = new RegExp(`(?:^|\\n|\\r)${label}\\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})`, 'i');
+        match = clean.match(spacePattern);
+        if (match && match[1] && isValidEmail(match[1])) {
+          return match[1].trim();
+        }
+        
+        // Pattern with colon and text after: "E: john@example.com"
+        const linePattern = new RegExp(`(?:^|\\n|\\r)${label}[\\s:：]+([^\\n\\r]+)`, 'i');
+        match = clean.match(linePattern);
+        if (match && match[1]) {
+          const emailMatch = match[1].match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (emailMatch && isValidEmail(emailMatch[0])) {
+            return emailMatch[0].trim();
+          }
+        }
+      }
+      
+      // Look for mailto: links
+      const mailtoMatch = clean.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+      if (mailtoMatch && mailtoMatch[1] && isValidEmail(mailtoMatch[1])) {
+        return mailtoMatch[1].trim();
+      }
+      
+      // Look for any email pattern in the text
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const matches = clean.match(emailRegex);
+      
+      if (matches && matches.length > 0) {
+        for (let email of matches) {
+          if (isValidEmail(email)) {
+            return email;
+          }
+        }
+        return matches[0];
+      }
+      
+      // Look for @ with surrounding text (OCR error recovery)
+      const atPattern = /([a-zA-Z0-9._%+-]{1,30})@([a-zA-Z0-9.-]{1,30})\.([a-zA-Z]{2,4})/g;
+      const atMatches = clean.match(atPattern);
+      if (atMatches && atMatches.length > 0) {
+        for (let email of atMatches) {
+          let cleaned = email
+            .replace(/\(/g, '')
+            .replace(/\)/g, '')
+            .replace(/\[/g, '')
+            .replace(/\]/g, '')
+            .replace(/\{/g, '')
+            .replace(/\}/g, '')
+            .replace(/\s/g, '');
+          if (isValidEmail(cleaned)) {
+            return cleaned;
+          }
+        }
+      }
+      
+      // Check lines for @ without spaces
+      const lines = clean.split(/[\n\r]+/);
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.includes('@') && !trimmed.includes(' ')) {
+          const emailMatch = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (emailMatch && isValidEmail(emailMatch[0])) {
+            return emailMatch[0];
+          }
+        }
+        if (trimmed.includes('@')) {
+          const parts = trimmed.split(/\s+/);
+          for (let part of parts) {
+            const emailMatch = part.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (emailMatch && isValidEmail(emailMatch[0])) {
+              return emailMatch[0];
+            }
+          }
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  📞 ENHANCED PHONE/MOBILE/FAX DETECTION WITH M, T, F LABELS
+    // ============================================================
+    function extractPhones(text) {
+      const phones = { phone: '', mobile: '', fax: '' };
+      if (!text) return phones;
+      
+      const clean = text.replace(/\s/g, ' ').trim();
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      
+      // First try to find labeled entries with M, T, F
+      for (let line of lines) {
+        const lowerLine = line.toLowerCase();
+        
+        // Check for M: (Mobile)
+        const mobilePatterns = [
+          /^m[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^mob[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^mobile[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^cell[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^手机[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+        ];
+        
+        for (let pattern of mobilePatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            const num = match[1].replace(/[^\d+]/g, '');
+            if (num.length >= 7 && num.length <= 20 && !phones.mobile) {
+              phones.mobile = num;
+              break;
+            }
+          }
+        }
+        
+        // Check for T: (Tel/Phone)
+        const phonePatterns = [
+          /^t[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^tel[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^phone[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^telephone[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^电话[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+        ];
+        
+        if (!phones.phone) {
+          for (let pattern of phonePatterns) {
+            const match = line.match(pattern);
+            if (match) {
+              const num = match[1].replace(/[^\d+]/g, '');
+              if (num.length >= 7 && num.length <= 20) {
+                phones.phone = num;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Check for F: (Fax)
+        const faxPatterns = [
+          /^f[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^fax[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+          /^传真[\s:：]+([\+\d\s\-\(\)]{7,})/i,
+        ];
+        
+        if (!phones.fax) {
+          for (let pattern of faxPatterns) {
+            const match = line.match(pattern);
+            if (match) {
+              const num = match[1].replace(/[^\d+]/g, '');
+              if (num.length >= 7 && num.length <= 20) {
+                phones.fax = num;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // If phone not found, try pattern matching with context
+      if (!phones.phone && !phones.mobile && !phones.fax) {
+        const patterns = [
+          /\+\d{1,3}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,4}/g,
+          /\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}/g,
+          /\d{2,4}[\s\-]?\d{3,4}[\s\-]?\d{3,4}/g,
+          /\+\d{1,3}[\s\-]?\d{1,4}[\s\-]?\d{1,4}[\s\-]?\d{1,4}/g
+        ];
+        
+        let allMatches = [];
+        for (let p of patterns) {
+          const matches = clean.match(p);
+          if (matches) {
+            for (let m of matches) {
+              let cleanNum = m.replace(/[^\d+]/g, '');
+              if (cleanNum.length >= 7 && cleanNum.length <= 20) {
+                allMatches.push(cleanNum);
+              }
+            }
+          }
+        }
+        
+        const unique = [...new Set(allMatches)];
+        unique.sort((a, b) => b.length - a.length);
+        
+        for (let num of unique) {
+          const context = clean.substring(Math.max(0, clean.indexOf(num) - 30), clean.indexOf(num) + 30).toLowerCase();
+          
+          if (!phones.mobile && /mobile|cell|手机|移动|handphone|hp|mob/i.test(context)) {
+            phones.mobile = num;
+          } else if (!phones.fax && /fax|传真|facsimile/i.test(context)) {
+            phones.fax = num;
+          } else if (!phones.phone && /phone|tel|telephone|电话/i.test(context)) {
+            phones.phone = num;
+          } else if (!phones.phone) {
+            phones.phone = num;
+          } else if (!phones.mobile && num !== phones.phone) {
+            phones.mobile = num;
+          } else if (!phones.fax && num !== phones.phone && num !== phones.mobile) {
+            phones.fax = num;
+          }
+        }
+      }
+      
+      // Clean up
+      for (let key of ['phone', 'mobile', 'fax']) {
+        if (phones[key]) {
+          phones[key] = phones[key].replace(/[^\d+]/g, '');
+          if (phones[key].length < 7 || phones[key].length > 20) {
+            phones[key] = '';
+          }
+        }
+      }
+      
+      return phones;
+    }
+
+    // ============================================================
+    //  🏢 IMPROVED COMPANY DETECTION - Checks for logo/text with big letters
+    // ============================================================
+    function detectCompanyFromText(text) {
+      if (!text) return '';
+      
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      
+      // Check if first line is likely a logo/company name with big letters
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        
+        // Check if first line is ALL CAPS or has mostly uppercase letters
+        const upperCount = (firstLine.match(/[A-Z]/g) || []).length;
+        const totalLetters = (firstLine.match(/[A-Za-z]/g) || []).length;
+        const upperRatio = totalLetters > 0 ? upperCount / totalLetters : 0;
+        
+        // If first line is mostly uppercase and contains common company indicators
+        const companyIndicators = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司|企业|实业|associates|pte\.?|sdn\.?|bhd\.?)/i;
+        const hasCompanyIndicator = companyIndicators.test(firstLine);
+        
+        // If first line is ALL CAPS (ratio > 0.7) or has company indicators
+        if (upperRatio > 0.7 || hasCompanyIndicator) {
+          // Check if it's not an email or phone
+          const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(firstLine);
+          const hasPhone = /(\+?[\d\s\-\(\)]{7,})/.test(firstLine);
+          
+          if (!hasEmail && !hasPhone && firstLine.length < 80 && firstLine.length > 2) {
+            return firstLine;
+          }
+        }
+      }
+      
+      // If first line has all caps words (logo style)
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        const words = firstLine.split(/\s+/);
+        let allCapsWords = 0;
+        let totalWords = words.length;
+        
+        for (let word of words) {
+          // Check if word is all caps and has at least 2 letters
+          if (word === word.toUpperCase() && word.length >= 2 && /[A-Z]/.test(word)) {
+            allCapsWords++;
+          }
+        }
+        
+        // If more than 50% of words are all caps, it's likely a company name
+        if (totalWords > 0 && allCapsWords / totalWords > 0.5) {
+          const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(firstLine);
+          const hasPhone = /(\+?[\d\s\-\(\)]{7,})/.test(firstLine);
+          
+          if (!hasEmail && !hasPhone && firstLine.length < 80 && firstLine.length > 2) {
+            return firstLine;
+          }
+        }
+      }
+      
+      // Check for lines with company indicators
+      const companyIndicators = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司|企业|实业|associates|pte\.?|sdn\.?|bhd\.?)/i;
+      
+      for (let line of lines) {
+        const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(line);
+        const hasPhone = /(\+?[\d\s\-\(\)]{7,})/.test(line);
+        if (hasEmail || hasPhone) continue;
+        if (companyIndicators.test(line) && line.length < 80 && line.length > 2) {
+          return line;
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  📝 IMPROVED NAME DETECTION - Gets name after company/logo
+    // ============================================================
+    function extractNameImproved(text, detectedCompany) {
+      if (!text) return '';
+      
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const phoneRegex = /(\+?[\d\s\-\(\)]{7,})/;
+      
+      const titleKeywords = [
+        'manager', 'director', 'engineer', 'developer', 'analyst', 'consultant', 
+        'specialist', 'coordinator', 'supervisor', 'president', 'ceo', 'cfo', 
+        'cto', 'cio', 'cmo', 'chro', 'vice president', 'vp', 'head', 'lead',
+        'principal', 'senior', 'junior', 'associate', 'assistant', 'executive',
+        'officer', 'administrator', 'architect', 'designer', 'planner', 'advisor',
+        'attorney', 'lawyer', 'physician', 'doctor', 'professor', 'teacher',
+        'instructor', 'trainer', 'coach', 'partner', 'founder', 'owner',
+        'chairman', 'board', 'member', 'representative', 'agent', 'broker',
+        'strategist', 'technician', 'operator', 'intern', 'fellow', 'resident',
+        'attending', 'nurse', 'therapist', 'counselor', 'psychologist',
+        '经理', '总监', '工程师', '开发', '分析师', '顾问', '专家', '协调', '主管',
+        '总裁', '首席执行官', '首席财务官', '首席技术官', '副总裁', '负责人', '首席',
+        '高级', '初级', '助理', '执行官', '官员', '管理员', '设计师', '规划师'
+      ];
+      
+      // If we detected a company, find the line after it that looks like a name
+      if (detectedCompany) {
+        let companyIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i] === detectedCompany) {
+            companyIndex = i;
+            break;
+          }
+        }
+        
+        if (companyIndex >= 0) {
+          // Look for name in the next 1-3 lines
+          for (let i = companyIndex + 1; i < Math.min(companyIndex + 4, lines.length); i++) {
+            const line = lines[i];
+            const hasEmail = emailRegex.test(line);
+            const hasPhone = phoneRegex.test(line);
+            const hasNumbers = /\d/.test(line);
+            const isShort = line.length > 2 && line.length < 50;
+            const hasTitle = titleKeywords.some(t => line.toLowerCase().includes(t.toLowerCase()));
+            const hasCompany = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司)/i.test(line);
+            
+            if (!hasEmail && !hasPhone && !hasNumbers && !hasCompany && isShort && !hasTitle) {
+              const name = line.trim();
+              if (isValidName(name)) {
+                return name;
+              }
+            }
+          }
+        }
+      }
+      
+      // Fallback: original name detection
+      let titleLineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const lineLower = lines[i].toLowerCase();
+        for (let title of titleKeywords) {
+          if (lineLower.includes(title.toLowerCase())) {
+            titleLineIndex = i;
+            break;
+          }
+        }
+        if (titleLineIndex >= 0) break;
+      }
+      
+      if (titleLineIndex > 0) {
+        let nameParts = [];
+        const startIdx = detectedCompany ? 1 : 0;
+        for (let i = startIdx; i < titleLineIndex; i++) {
+          const line = lines[i];
+          if (detectedCompany && line === detectedCompany) continue;
+          
+          const hasEmail = emailRegex.test(line);
+          const hasPhone = phoneRegex.test(line);
+          const hasNumbers = /\d/.test(line);
+          const hasCompany = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司)/i.test(line);
+          
+          if (!hasEmail && !hasPhone && !hasNumbers && !hasCompany && line.length < 50 && line.length > 1) {
+            nameParts.push(line);
+          }
+        }
+        if (nameParts.length > 0) {
+          const name = nameParts.join(' ').trim();
+          if (isValidName(name)) {
+            return name;
+          }
+        }
+      }
+      
+      // Look for a line that looks like a name
+      for (let line of lines) {
+        const hasEmail = emailRegex.test(line);
+        const hasPhone = phoneRegex.test(line);
+        const hasNumbers = /\d/.test(line);
+        const isShort = line.length > 2 && line.length < 50;
+        const hasTitle = titleKeywords.some(t => line.toLowerCase().includes(t.toLowerCase()));
+        const hasCompany = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司)/i.test(line);
+        
+        if (detectedCompany && line === detectedCompany) continue;
+        
+        if (!hasEmail && !hasPhone && !hasNumbers && !hasCompany && isShort && !hasTitle) {
+          const name = line.trim();
+          if (isValidName(name)) {
+            return name;
+          }
+        }
+      }
+      
+      // Check for "Name:" label
+      const nameLabels = ['name', 'full name', 'fullname', '姓名', '名字'];
+      for (let label of nameLabels) {
+        const pattern = new RegExp(`${label}[\\s:：]+([^\\n\\r]+)`, 'i');
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const name = match[1].trim();
+          if (isValidName(name)) {
+            return name;
+          }
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  📝 TITLE DETECTION
+    // ============================================================
+    function extractTitle(text) {
+      if (!text) return '';
+      
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const titleKeywords = [
+        'manager', 'director', 'engineer', 'developer', 'analyst', 'consultant', 
+        'specialist', 'coordinator', 'supervisor', 'president', 'ceo', 'cfo', 
+        'cto', 'cio', 'cmo', 'chro', 'vice president', 'vp', 'head', 'lead',
+        'principal', 'senior', 'junior', 'associate', 'assistant', 'executive',
+        'officer', 'administrator', 'architect', 'designer', 'planner', 'advisor',
+        'attorney', 'lawyer', 'physician', 'doctor', 'professor', 'teacher',
+        'instructor', 'trainer', 'coach', 'partner', 'founder', 'owner',
+        'chairman', 'board', 'member', 'representative', 'agent', 'broker',
+        'strategist', 'technician', 'operator', 'intern', 'fellow', 'resident',
+        'attending', 'nurse', 'therapist', 'counselor', 'psychologist',
+        '经理', '总监', '工程师', '开发', '分析师', '顾问', '专家', '协调', '主管',
+        '总裁', '首席执行官', '首席财务官', '首席技术官', '副总裁', '负责人', '首席',
+        '高级', '初级', '助理', '执行官', '官员', '管理员', '设计师', '规划师'
+      ];
+      
+      // Check for "Title:" label
+      const titleLabels = ['title', 'position', 'job title', 'role', '职称', '职位', '职务'];
+      for (let label of titleLabels) {
+        const pattern = new RegExp(`${label}[\\s:：]+([^\\n\\r]+)`, 'i');
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const title = match[1].trim();
+          if (title.length > 1 && title.length < 80) {
+            return title;
+          }
+        }
+      }
+      
+      for (let line of lines) {
+        for (let title of titleKeywords) {
+          if (line.toLowerCase().includes(title.toLowerCase())) {
+            if (!/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(line) &&
+                !/\+?[\d\s\-\(\)]{7,}/.test(line)) {
+              return line;
+            }
+            break;
+          }
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  📍 ADDRESS DETECTION
+    // ============================================================
+    function extractAddress(text) {
+      if (!text) return '';
+      
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const addressIndicators = /(street|st\.|avenue|ave\.|road|rd\.|boulevard|blvd|lane|ln\.|drive|dr\.|suite|ste\.|apt|floor|fl\.|postal|zip|code|#\d+|\b\d{5}\b|路|街|大道|巷|弄|号|楼|层|室|单元|栋|座|区|县|市|省|国家|邮编|邮政|地址|大厦|广场|花园|苑|园|城|中心|国际|商务|写字楼|办公楼|住宅|小区|工业园|科技园|开发区|保税区)/i;
+      
+      // Check for "Address:" label
+      const addressLabels = ['address', 'addr', 'street', 'location', '地址', '住址'];
+      for (let label of addressLabels) {
+        const pattern = new RegExp(`${label}[\\s:：]+([^\\n\\r]+)`, 'i');
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const addr = match[1].trim();
+          if (addr.length > 5) {
+            return addr;
+          }
+        }
+      }
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (addressIndicators.test(line) && line.length > 8 && line.length < 150) {
+          const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(line);
+          const hasPhone = /(\+?[\d\s\-\(\)]{7,})/.test(line);
+          if (!hasEmail && !hasPhone) {
+            let addressLines = [line];
+            for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+              const nextLine = lines[j];
+              const nextHasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(nextLine);
+              const nextHasPhone = /(\+?[\d\s\-\(\)]{7,})/.test(nextLine);
+              const nextHasAddress = addressIndicators.test(nextLine);
+              if (!nextHasEmail && !nextHasPhone && (nextHasAddress || nextLine.length > 5)) {
+                addressLines.push(nextLine);
+              } else {
+                break;
+              }
+            }
+            if (addressLines.length >= 1) {
+              return addressLines.join(', ').trim();
+            }
+          }
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  🧠 MAIN EXTRACTION FUNCTION
+    // ============================================================
+    function extractAll(text, base64Image) {
+      const card = createEmptyCard();
+      if (!text) return card;
+      
+      card.email = extractEmail(text);
+      
+      const phones = extractPhones(text);
+      card.phone = phones.phone;
+      card.mobile = phones.mobile;
+      card.fax = phones.fax;
+      
+      // Use improved company detection (checks for logo/big letters)
+      card.company = detectCompanyFromText(text);
+      
+      // Use improved name detection (finds name after company)
+      card.name = extractNameImproved(text, card.company);
+      
+      // If name is still empty, try the original method as fallback
+      if (!card.name) {
+        card.name = extractNameFallback(text);
+      }
+      
+      card.address = extractAddress(text);
+      card.title = extractTitle(text);
+      
+      if (base64Image) {
+        card.base64Image = base64Image;
+        currentBase64Image = base64Image;
+      }
+      
+      return card;
+    }
+
+    // Fallback name detection
+    function extractNameFallback(text) {
+      if (!text) return '';
+      
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const phoneRegex = /(\+?[\d\s\-\(\)]{7,})/;
+      
+      const titleKeywords = [
+        'manager', 'director', 'engineer', 'developer', 'analyst', 'consultant', 
+        'specialist', 'coordinator', 'supervisor', 'president', 'ceo', 'cfo', 
+        'cto', 'cio', 'cmo', 'chro', 'vice president', 'vp', 'head', 'lead',
+        'principal', 'senior', 'junior', 'associate', 'assistant', 'executive',
+        'officer', 'administrator', 'architect', 'designer', 'planner', 'advisor',
+        'attorney', 'lawyer', 'physician', 'doctor', 'professor', 'teacher',
+        'instructor', 'trainer', 'coach', 'partner', 'founder', 'owner',
+        'chairman', 'board', 'member', 'representative', 'agent', 'broker',
+        'strategist', 'technician', 'operator', 'intern', 'fellow', 'resident',
+        'attending', 'nurse', 'therapist', 'counselor', 'psychologist',
+        '经理', '总监', '工程师', '开发', '分析师', '顾问', '专家', '协调', '主管',
+        '总裁', '首席执行官', '首席财务官', '首席技术官', '副总裁', '负责人', '首席',
+        '高级', '初级', '助理', '执行官', '官员', '管理员', '设计师', '规划师'
+      ];
+      
+      let titleLineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const lineLower = lines[i].toLowerCase();
+        for (let title of titleKeywords) {
+          if (lineLower.includes(title.toLowerCase())) {
+            titleLineIndex = i;
+            break;
+          }
+        }
+        if (titleLineIndex >= 0) break;
+      }
+      
+      if (titleLineIndex > 0) {
+        let nameParts = [];
+        for (let i = 0; i < titleLineIndex; i++) {
+          const line = lines[i];
+          const hasEmail = emailRegex.test(line);
+          const hasPhone = phoneRegex.test(line);
+          const hasNumbers = /\d/.test(line);
+          const hasCompany = /(inc|llc|corp|ltd|gmbh|pte|plc|limited|company|co\.|有限公司|集团|股份|公司)/i.test(line);
+          
+          if (!hasEmail && !hasPhone && !hasNumbers && !hasCompany && line.length < 50 && line.length > 1) {
+            nameParts.push(line);
+          }
+        }
+        if (nameParts.length > 0) {
+          const name = nameParts.join(' ').trim();
+          if (isValidName(name)) {
+            return name;
+          }
+        }
+      }
+      
+      for (let line of lines) {
+        const hasEmail = emailRegex.test(line);
+        const hasPhone = phoneRegex.test(line);
+        const hasNumbers = /\d/.test(line);
+        const isShort = line.length > 2 && line.length < 40;
+        const hasTitleKeyword = titleKeywords.some(t => line.toLowerCase().includes(t.toLowerCase()));
+        
+        if (!hasEmail && !hasPhone && !hasNumbers && isShort && !hasTitleKeyword) {
+          const name = line.trim();
+          if (isValidName(name)) {
+            return name;
+          }
+        }
+      }
+      
+      return '';
+    }
+
+    // ============================================================
+    //  📱 PARSERS
+    // ============================================================
+    
+    function parseVCard(vcardStr, base64Image) {
+      const card = createEmptyCard();
+      const lines = vcardStr.split(/\r?\n/);
+      for (let line of lines) {
+        const upper = line.toUpperCase();
+        if (upper.startsWith('FN:')) {
+          card.name = line.substring(3).trim();
+        } else if (upper.startsWith('N:')) {
+          const parts = line.substring(2).split(';');
+          if (parts.length >= 2) {
+            const lastName = parts[0] || '';
+            const firstName = parts[1] || '';
+            card.name = (firstName + ' ' + lastName).trim() || card.name;
+          }
+        } else if (upper.startsWith('EMAIL')) {
+          const emailMatch = line.match(/:([^:]+)$/);
+          if (emailMatch) card.email = emailMatch[1].trim();
+        } else if (upper.includes('TEL') && upper.includes('WORK') && !card.phone) {
+          const telMatch = line.match(/:([^:]+)$/);
+          if (telMatch) card.phone = telMatch[1].trim();
+        } else if (upper.includes('TEL') && upper.includes('CELL') && !card.mobile) {
+          const telMatch = line.match(/:([^:]+)$/);
+          if (telMatch) card.mobile = telMatch[1].trim();
+        } else if (upper.includes('TEL') && upper.includes('FAX') && !card.fax) {
+          const telMatch = line.match(/:([^:]+)$/);
+          if (telMatch) card.fax = telMatch[1].trim();
+        } else if (upper.startsWith('ORG:')) {
+          card.company = line.substring(4).trim();
+        } else if (upper.startsWith('ADR') || upper.startsWith('ADR;')) {
+          const addrMatch = line.match(/:([^:]+)$/);
+          if (addrMatch) {
+            const addrParts = addrMatch[1].split(';');
+            const addrStr = addrParts.filter(p => p.trim()).join(', ');
+            if (addrStr) card.address = addrStr;
+          }
+        } else if (upper.startsWith('TITLE:')) {
+          card.title = line.substring(6).trim();
+        }
+      }
+      
+      if (base64Image) {
+        card.base64Image = base64Image;
+        currentBase64Image = base64Image;
+      }
+      
+      return card;
+    }
+
+    function parseJsonCard(jsonStr, base64Image) {
+      const card = createEmptyCard();
+      try {
+        const data = JSON.parse(jsonStr);
+        card.name = data.name || data.fullName || data.fullname || data.displayName || '';
+        card.email = data.email || data.emailAddress || data.mail || '';
+        card.phone = data.phone || data.tel || data.telephone || data.workPhone || '';
+        card.mobile = data.mobile || data.cell || data.cellPhone || data.mobilePhone || '';
+        card.fax = data.fax || data.faxNumber || '';
+        card.company = data.company || data.org || data.organization || data.employer || '';
+        card.address = data.address || data.addr || data.street || data.location || '';
+        card.title = data.title || data.jobTitle || data.position || data.role || data.job_title || '';
+        
+        if (base64Image) {
+          card.base64Image = base64Image;
+          currentBase64Image = base64Image;
+        }
+      } catch(e) {
+        return null;
+      }
+      return card;
+    }
+
+    // ============================================================
+    //  📱 DISPLAY FUNCTIONS
+    // ============================================================
+
+    function displayResult(jsonData, rawText) {
+      lastJsonData = jsonData;
+      lastRawText = rawText || '';
+      
+      if (showRawToggle.checked && rawText) {
+        output.textContent = rawText;
+        wordCount.textContent = 'raw text';
+      } else {
+        output.innerHTML = formatJson(jsonData);
+        const displayCount = Object.keys(jsonData).filter(k => k !== 'base64Image' && jsonData[k] && jsonData[k].trim().length > 0).length;
+        wordCount.textContent = displayCount + ' fields';
+      }
+    }
+
+    showRawToggle.addEventListener('change', () => {
+      if (lastJsonData) {
+        displayResult(lastJsonData, lastRawText);
+      }
+    });
+
+    function getFrameCrop() {
+      const vw = video.videoWidth || 640;
+      const vh = video.videoHeight || 480;
+      const frameW = vw * 0.88;
+      const frameH = vh * 0.72;
+      const left = (vw - frameW) / 2;
+      const top = (vh - frameH) / 2;
+      return { left, top, width: frameW, height: frameH };
+    }
+
+    function setStatus(msg, isProcessing = false) {
+      if (isProcessing) {
+        statusText.innerHTML = `<span class="spinner"></span> ${msg}`;
+      } else {
+        statusText.textContent = msg;
+      }
+    }
+
+    function detectOcrCard() {
+      if (!stream || !video.videoWidth || currentMode !== 'ocr') {
+        if (currentMode !== 'ocr') return;
+        cardFrame.classList.remove('detected');
+        scanline.classList.remove('ocr-detected');
+        return;
+      }
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, vw, vh);
+      const cx = Math.floor(vw / 2);
+      const cy = Math.floor(vh / 2);
+      const sampleSize = 40;
+      const half = Math.floor(sampleSize / 2);
+      const imageData = ctx.getImageData(cx - half, cy - half, sampleSize, sampleSize);
+      const data = imageData.data;
+      let sum = 0, sumSq = 0;
+      const len = data.length;
+      for (let i = 0; i < len; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        sum += gray;
+        sumSq += gray * gray;
+      }
+      const avg = sum / (len / 4);
+      const variance = (sumSq / (len / 4)) - (avg * avg);
+      const contrast = Math.sqrt(variance);
+      const isCard = (contrast > 18 && avg > 50 && avg < 210);
+      if (isCard) {
+        cardFrame.classList.add('detected');
+        scanline.classList.add('ocr-detected');
+        detectBadge.textContent = '🟢 card detected';
+      } else {
+        cardFrame.classList.remove('detected');
+        scanline.classList.remove('ocr-detected');
+        detectBadge.textContent = '🔵 OCR mode';
+      }
+    }
+
+    function updateMode() {
+      lastQrResult = '';
+      qrDetectedOnce = false;
+      
+      if (isQrAutoScanning) {
+        stopQrAutoScan();
+      }
+      
+      if (currentMode === 'ocr') {
+        cardFrame.style.display = 'block';
+        qrFrame.style.display = 'none';
+        qrFrame.classList.remove('detected');
+        scanline.className = 'scanline';
+        resultTitle.textContent = '📋 JSON (OCR)';
+        detectBadge.textContent = '🔵 OCR mode';
+        detectBadge.classList.add('detected');
+        scanBtn.style.display = 'flex';
+        scanBtn.textContent = '📷 Scan now';
+        photoBtn.style.display = 'none';
+        document.querySelector('.scan-toggle-group').style.display = 'flex';
+        setStatus('OCR mode · align card in blue frame, tap Scan or enable Auto');
+        setTimeout(() => detectOcrCard(), 200);
+      } else if (currentMode === 'qr') {
+        cardFrame.style.display = 'none';
+        cardFrame.classList.remove('detected');
+        scanline.classList.remove('ocr-detected');
+        qrFrame.style.display = 'block';
+        qrFrame.classList.remove('detected');
+        scanline.className = 'scanline qr-scanline';
+        resultTitle.textContent = '📱 JSON (QR)';
+        detectBadge.textContent = '🟡 QR mode';
+        detectBadge.classList.add('detected');
+        scanBtn.style.display = 'flex';
+        scanBtn.textContent = '📱 Scan QR';
+        photoBtn.style.display = 'none';
+        document.querySelector('.scan-toggle-group').style.display = 'flex';
+        setStatus('QR mode · align QR code in frame, tap Scan QR or enable Auto');
+        setTimeout(() => detectQrCode(), 300);
+      } else {
+        // Photo mode
+        cardFrame.style.display = 'none';
+        cardFrame.classList.remove('detected');
+        qrFrame.style.display = 'none';
+        qrFrame.classList.remove('detected');
+        scanline.className = 'scanline';
+        resultTitle.textContent = '📸 Photo Mode';
+        detectBadge.textContent = '📸 Photo mode';
+        detectBadge.classList.add('detected');
+        scanBtn.style.display = 'none';
+        photoBtn.style.display = 'flex';
+        document.querySelector('.scan-toggle-group').style.display = 'none';
+        setStatus('📸 Photo mode · tap "Take Photo" to capture and convert to base64');
+      }
+    }
+
+    // ============================================================
+    //  🔄 QR AUTO SCAN FUNCTIONS
+    // ============================================================
+    function startQrAutoScan() {
+      if (isQrAutoScanning) return;
+      if (currentMode !== 'qr') return;
+      
+      isQrAutoScanning = true;
+      scanAuto.checked = true;
+      scanManual.checked = false;
+      scanModeStatus.textContent = 'Mode: Auto (QR)';
+      scanBtn.style.display = 'none';
+      setStatus('🔄 QR Auto-scanning... will capture when QR code is detected');
+      
+      qrAutoScanInterval = setInterval(() => {
+        if (!isQrAutoScanning || isScanning) return;
+        if (!stream || !video.videoWidth) return;
+        detectQrCode();
+      }, 500);
+    }
+
+    function stopQrAutoScan() {
+      isQrAutoScanning = false;
+      if (qrAutoScanInterval) {
+        clearInterval(qrAutoScanInterval);
+        qrAutoScanInterval = null;
+      }
+      scanManual.checked = true;
+      scanAuto.checked = false;
+      scanModeStatus.textContent = 'Mode: Manual (QR)';
+      scanBtn.style.display = 'flex';
+      scanBtn.textContent = '📱 Scan QR';
+      setStatus('QR mode · align QR code in frame, tap Scan QR or enable Auto');
+    }
+
+    // ============================================================
+    //  📱 QR CODE DETECTION
+    // ============================================================
+    function detectQrCode() {
+      if (!stream || !video.videoWidth || currentMode !== 'qr') return;
+      if (isScanning) return;
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, vw, vh);
+      const imageData = ctx.getImageData(0, 0, vw, vh);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code && code.data) {
+        qrFrame.classList.add('detected');
+        scanline.className = 'scanline qr-scanline detected';
+        detectBadge.textContent = '🟢 QR detected';
+        qrDetectedOnce = true;
+
+        clearOutput();
+        lastQrResult = code.data;
+        
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.width = vw;
+        qrCanvas.height = vh;
+        const qrCtx = qrCanvas.getContext('2d');
+        qrCtx.drawImage(video, 0, 0, vw, vh);
+        const base64 = qrCanvas.toDataURL('image/jpeg', 0.92);
+        
+        let cardData;
+        let rawText = code.data;
+        
+        if (code.data.toLowerCase().includes('begin:vcard')) {
+          cardData = parseVCard(code.data, base64);
+        } else {
+          const jsonCard = parseJsonCard(code.data, base64);
+          if (jsonCard && Object.values(jsonCard).some(v => v && v.trim().length > 0)) {
+            cardData = jsonCard;
+          } else {
+            cardData = extractAll(code.data, base64);
+          }
+        }
+        displayResult(cardData, rawText);
+        const count = Object.values(cardData).filter(v => v && v.trim().length > 0).length;
+        setStatus(`✅ QR detected · ${count} fields`);
+        
+        const name = cardData.name || '';
+        const email = cardData.email || '';
+        if (isValidName(name) && isValidEmail(email)) {
+          showPopup(name, email, base64);
+        }
+        
+      } else {
+        qrFrame.classList.remove('detected');
+        scanline.className = 'scanline qr-scanline';
+        if (qrDetectedOnce) {
+          detectBadge.textContent = '🟡 QR mode (waiting)';
+        } else {
+          detectBadge.textContent = '🟡 QR mode';
+        }
+      }
+    }
+
+    modeOcr.addEventListener('change', () => {
+      if (modeOcr.checked) { 
+        currentMode = 'ocr'; 
+        if (isQrAutoScanning) stopQrAutoScan();
+        if (isAutoScanning) stopAutoScan();
+        updateMode(); 
+      }
+    });
+    modeQr.addEventListener('change', () => {
+      if (modeQr.checked) { 
+        currentMode = 'qr'; 
+        if (isAutoScanning) stopAutoScan();
+        updateMode(); 
+      }
+    });
+    modePhoto.addEventListener('change', () => {
+      if (modePhoto.checked) {
+        currentMode = 'photo';
+        if (isQrAutoScanning) stopQrAutoScan();
+        if (isAutoScanning) stopAutoScan();
+        updateMode();
+      }
+    });
+
+    // ============================================================
+    //  🔄 OCR AUTO SCAN FUNCTIONS
+    // ============================================================
+    function startAutoScan() {
+      if (isAutoScanning) return;
+      if (currentMode !== 'ocr') return;
+      isAutoScanning = true;
+      scanAuto.checked = true;
+      scanManual.checked = false;
+      scanModeStatus.textContent = 'Mode: Auto (OCR)';
+      scanBtn.style.display = 'none';
+      setStatus('🔄 OCR Auto-scanning... will capture when card is detected');
+      
+      autoScanInterval = setInterval(async () => {
+        if (!isAutoScanning || isScanning) return;
+        if (!stream || !video.videoWidth) return;
+        
+        const vw = video.videoWidth, vh = video.videoHeight;
+        canvas.width = vw; canvas.height = vh;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, vw, vh);
+        const cx = Math.floor(vw / 2), cy = Math.floor(vh / 2);
+        const sampleSize = 40, half = Math.floor(sampleSize / 2);
+        const imageData = ctx.getImageData(cx - half, cy - half, sampleSize, sampleSize);
+        const data = imageData.data;
+        let sum = 0, sumSq = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+          sum += gray; sumSq += gray * gray;
+        }
+        const avg = sum / (data.length / 4);
+        const variance = (sumSq / (data.length / 4)) - (avg * avg);
+        const contrast = Math.sqrt(variance);
+        const isCard = (contrast > 18 && avg > 50 && avg < 210);
+        
+        if (isCard) {
+          await captureAndOCR();
+        }
+      }, 1500);
+    }
+
+    function stopAutoScan() {
+      isAutoScanning = false;
+      if (autoScanInterval) {
+        clearInterval(autoScanInterval);
+        autoScanInterval = null;
+      }
+      scanManual.checked = true;
+      scanAuto.checked = false;
+      scanModeStatus.textContent = 'Mode: Manual (OCR)';
+      scanBtn.style.display = 'flex';
+      scanBtn.textContent = '📷 Scan now';
+      setStatus('OCR mode · align card in blue frame, tap Scan or enable Auto');
+    }
+
+    // ============================================================
+    //  SCAN TYPE TOGGLE HANDLERS
+    // ============================================================
+    scanManual.addEventListener('change', () => {
+      if (scanManual.checked) {
+        if (currentMode === 'ocr') {
+          if (isAutoScanning) stopAutoScan();
+          scanModeStatus.textContent = 'Mode: Manual (OCR)';
+          scanBtn.style.display = 'flex';
+          scanBtn.textContent = '📷 Scan now';
+          setStatus('OCR mode · align card in blue frame, tap Scan');
+        } else if (currentMode === 'qr') {
+          if (isQrAutoScanning) stopQrAutoScan();
+          scanModeStatus.textContent = 'Mode: Manual (QR)';
+          scanBtn.style.display = 'flex';
+          scanBtn.textContent = '📱 Scan QR';
+          setStatus('QR mode · align QR code in frame, tap Scan QR');
+        }
+      }
+    });
+
+    scanAuto.addEventListener('change', () => {
+      if (scanAuto.checked) {
+        if (currentMode === 'ocr') {
+          startAutoScan();
+        } else if (currentMode === 'qr') {
+          startQrAutoScan();
+        }
+      }
+    });
+
+    async function startCamera() {
+      try {
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+          stream = null;
+        }
+        const constraints = {
+          video: { facingMode: 'environment', width: { ideal: 800 }, height: { ideal: 600 } }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        await video.play();
+
+        if (detectionInterval) clearInterval(detectionInterval);
+        detectionInterval = setInterval(() => {
+          if (!stream || !video.videoWidth) return;
+          if (currentMode === 'ocr') detectOcrCard();
+        }, 350);
+
+        updateMode();
+        return true;
+      } catch (err) {
+        console.error('Camera error:', err);
+        setStatus('⚠️ Camera unavailable: ' + err.message);
+        return false;
+      }
+    }
+
+    // ============================================================
+    //  📸 TAKE PHOTO FUNCTION
+    // ============================================================
+    function takePhoto() {
+      if (!stream || !video.videoWidth) {
+        setStatus('⚠️ Camera not ready');
+        return;
+      }
+
+      try {
+        clearOutput();
+        setStatus('📸 Capturing photo...', true);
+        
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        
+        const captureCanvas = document.createElement('canvas');
+        captureCanvas.width = vw;
+        captureCanvas.height = vh;
+        const captureCtx = captureCanvas.getContext('2d');
+        captureCtx.drawImage(video, 0, 0, vw, vh);
+        
+        const base64 = captureCanvas.toDataURL('image/jpeg', 0.95);
+        
+        const photoData = {
+          timestamp: new Date().toISOString(),
+          base64Image: base64
+        };
+        
+        lastJsonData = photoData;
+        lastRawText = '';
+        output.innerHTML = formatJson(photoData);
+        wordCount.textContent = '1 field';
+        setStatus(`✅ Photo captured! Base64 length: ${base64.length} chars`);
+        
+        showPopup('Photo', 'Captured', base64);
+        
+      } catch (err) {
+        console.error('Photo error:', err);
+        setStatus('⚠️ Error capturing photo: ' + err.message);
+      }
+    }
+
+    // ============================================================
+    //  🔧 captureAndOCR
+    // ============================================================
+    async function captureAndOCR() {
+      if (typeof Tesseract === 'undefined') {
+        setStatus('❌ Tesseract library not loaded. Please refresh the page.');
+        return;
+      }
+
+      if (currentMode === 'qr') {
+        detectQrCode();
+        return;
+      }
+
+      if (currentMode === 'photo') {
+        takePhoto();
+        return;
+      }
+
+      if (isScanning) {
+        setStatus('⏳ Processing …');
+        return;
+      }
+
+      if (!stream || !video.videoWidth) {
+        setStatus('⚠️ Camera not ready, starting …');
+        await startCamera();
+        setTimeout(() => captureAndOCR(), 500);
+        return;
+      }
+
+      isScanning = true;
+      scanBtn.disabled = true;
+
+      try {
+        clearOutput();
+        setStatus('🧠 OCR scanning with accurate phone detection …', true);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        const frames = [];
+        for (let i = 0; i < 3; i++) {
+          const vw = video.videoWidth;
+          const vh = video.videoHeight;
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = vw;
+          tempCanvas.height = vh;
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.drawImage(video, 0, 0, vw, vh);
+          
+          const imageData = tempCtx.getImageData(0, 0, vw, vh);
+          const data = imageData.data;
+          let sharpness = 0;
+          for (let j = 0; j < data.length; j += 16) {
+            if (j + 4 < data.length) {
+              const gray1 = 0.299 * data[j] + 0.587 * data[j+1] + 0.114 * data[j+2];
+              const gray2 = 0.299 * data[j+4] + 0.587 * data[j+5] + 0.114 * data[j+6];
+              sharpness += Math.abs(gray1 - gray2);
+            }
+          }
+          frames.push({ canvas: tempCanvas, sharpness });
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        frames.sort((a, b) => b.sharpness - a.sharpness);
+        const bestCanvas = frames[0].canvas;
+        
+        const captureCanvas = document.createElement('canvas');
+        captureCanvas.width = video.videoWidth;
+        captureCanvas.height = video.videoHeight;
+        const captureCtx = captureCanvas.getContext('2d');
+        captureCtx.drawImage(video, 0, 0);
+        const base64 = captureCanvas.toDataURL('image/jpeg', 0.92);
+        
+        const crop = getFrameCrop();
+        croppedCanvas.width = Math.floor(crop.width);
+        croppedCanvas.height = Math.floor(crop.height);
+        const cropCtx = croppedCanvas.getContext('2d');
+        cropCtx.drawImage(bestCanvas, crop.left, crop.top, crop.width, crop.height, 0, 0, croppedCanvas.width, croppedCanvas.height);
+        
+        const imageData = cropCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+        const data = imageData.data;
+        let min = 255, max = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+          if (avg < min) min = avg;
+          if (avg > max) max = avg;
+        }
+        const range = max - min;
+        if (range > 30) {
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] = ((data[i] - min) / range) * 255;
+            data[i+1] = ((data[i+1] - min) / range) * 255;
+            data[i+2] = ((data[i+2] - min) / range) * 255;
+          }
+        }
+        cropCtx.putImageData(imageData, 0, 0);
+        const imageDataUrl = croppedCanvas.toDataURL('image/jpeg', 0.98);
+
+        if (ocrWorker) {
+          try {
+            await ocrWorker.terminate();
+          } catch(e) {}
+          ocrWorker = null;
+        }
+        
+        try {
+          ocrWorker = await Tesseract.createWorker('eng', 1, { logger: (m) => {} });
+          await ocrWorker.setParameters({
+            tessedit_pageseg_mode: '6',
+            tessedit_enable_dictionary: '1',
+            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@.-+()/.,: ',
+            classify_bln_numeric_mode: '1',
+          });
+        } catch(err) {
+          console.error('Worker creation error:', err);
+          setStatus('⚠️ Tesseract initialization failed. Please refresh the page.');
+          return;
+        }
+
+        const { data: { text } } = await ocrWorker.recognize(imageDataUrl);
+        const cleaned = text.trim();
+        
+        if (cleaned.length > 0) {
+          const cardData = extractAll(cleaned, base64);
+          displayResult(cardData, cleaned);
+          const count = Object.values(cardData).filter(v => v && v.trim().length > 0).length;
+          setStatus(`✅ Extracted ${count} fields from OCR`);
+          
+          const name = cardData.name || '';
+          const email = cardData.email || '';
+          if (isValidName(name) && isValidEmail(email)) {
+            showPopup(name, email, base64);
+          }
+        } else {
+          output.textContent = '😕 No text detected.';
+          wordCount.textContent = '0 fields';
+          setStatus('❌ No text found');
+        }
+      } catch (err) {
+        console.error('OCR error:', err);
+        setStatus('⚠️ Error: ' + err.message);
+        output.textContent = '⚠️ Error during OCR.';
+      } finally {
+        isScanning = false;
+        scanBtn.disabled = false;
+      }
+    }
+
+    function resetAll() {
+      output.textContent = '';
+      wordCount.textContent = '0 fields';
+      lastQrResult = '';
+      lastJsonData = null;
+      lastRawText = '';
+      lastBase64Image = '';
+      currentBase64Image = '';
+      qrDetectedOnce = false;
+      setStatus('Ready');
+      qrFrame.classList.remove('detected');
+      cardFrame.classList.remove('detected');
+      scanline.classList.remove('ocr-detected');
+      scanline.className = currentMode === 'ocr' || currentMode === 'photo' ? 'scanline' : 'scanline qr-scanline';
+      if (currentMode === 'qr') {
+        detectBadge.textContent = '🟡 QR mode';
+      } else if (currentMode === 'photo') {
+        detectBadge.textContent = '📸 Photo mode';
+      } else {
+        detectBadge.textContent = '🔵 OCR mode';
+      }
+      if (isAutoScanning) stopAutoScan();
+      if (isQrAutoScanning) stopQrAutoScan();
+    }
+
+    copyBtn.addEventListener('click', () => {
+      const textToCopy = showRawToggle.checked && lastRawText ? lastRawText : (lastJsonData ? JSON.stringify(lastJsonData, null, 2) : '');
+      if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => setStatus('✅ Copied to clipboard!'))
+          .catch(() => setStatus('⚠️ Could not copy'));
+      } else {
+        setStatus('⚠️ Nothing to copy');
+      }
+    });
+
+    saveBtn.addEventListener('click', saveToGoogleSheet);
+    scanBtn.addEventListener('click', captureAndOCR);
+    photoBtn.addEventListener('click', takePhoto);
+    resetBtn.addEventListener('click', resetAll);
+
+    window.addEventListener('load', async () => {
+      await startCamera();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (detectionInterval) clearInterval(detectionInterval);
+      if (autoScanInterval) clearInterval(autoScanInterval);
+      if (qrAutoScanInterval) clearInterval(qrAutoScanInterval);
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      if (ocrWorker) {
+        try {
+          ocrWorker.terminate();
+        } catch(e) {}
+        ocrWorker = null;
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !stream) {
+        startCamera();
+      }
+    });
+
+    currentMode = 'ocr';
+    currentScanType = 'manual';
+    updateMode();
+
+  })();
+</script>
 </body>
 </html>
