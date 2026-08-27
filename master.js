@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
 
         API_Ext.ui.setMenu({
             title: "BizCard Scanner"
-            , icon: "https://components.connect.trimble.com/trimble-connect-project-workspace-api/logo192.png"
+            , icon: "https://api.iconify.design/tabler/scan.svg?color=%23FFFFFF"
             , command: "main_nav_menu_clicked"
             , subMenus: [
                 {
