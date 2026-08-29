@@ -595,7 +595,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 1.5</small></h1>
+  <h1>🪪 BizCard <small>Beta 1.6</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -811,11 +811,18 @@
         setStatus('💾 Saving to Google Sheet...', true);
         saveBtn.disabled = true;
 
+        const projectNameField = document.getElementById('hdnProjectName');
+        const userEmailField = document.getElementById('hdnUserEmail');
+        const projectName = projectNameField ? projectNameField.value : '';
+        const userEmail = userEmailField ? userEmailField.value : '';
+
         const data = {
           //timestamp: new Date().toISOString(),
           timestamp: new Date().toLocaleString("sv-SE", {
               timeZone: "Asia/Singapore"
           }),
+          projectName: projectName,
+          userEmail: userEmail,
           name: lastJsonData.name || '',
           email: lastJsonData.email || '',
           phone: lastJsonData.phone || '',
