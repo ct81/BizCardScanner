@@ -742,7 +742,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 2.0</small></h1>
+  <h1>🪪 BizCard <small>Beta 2.1</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -2811,17 +2811,22 @@
     const tourSteps = [
       {
         title: 'Choose a mode',
-        text: 'Select OCR mode to scan a business card, QR mode to read a QR code, or Photo mode to capture an image.',
+        text: 'Choose the mode first: eCard for OCR scanning, QR Code for QR scanning, or Photo for taking a picture.',
         target: '.mode-toggle'
       },
       {
-        title: 'Align and scan',
-        text: 'Point your camera at the card or QR code and click Scan. You can also switch to Auto mode for quicker capture.',
+        title: 'Choose Manual or Auto',
+        text: 'If you selected eCard or QR Code, choose Manual or Auto. If you selected Photo, there is no Manual/Auto option.',
+        target: '.scan-toggle-group'
+      },
+      {
+        title: 'Camera scan',
+        text: 'Point the camera at the card or QR code, then press Scan to capture the item. Use the frame to align it correctly.',
         target: '#scanBtn'
       },
       {
-        title: 'Review and save',
-        text: 'Check the extracted data, then click Save to send the record to Google Sheets. Use Copy to copy the output if needed.',
+        title: 'Save the captured result',
+        text: 'If Manual is selected, click Save to capture the result. If Auto is selected, it will capture automatically. If Photo mode is selected, take the photo and then click Save to capture it.',
         target: '#saveBtn'
       }
     ];
