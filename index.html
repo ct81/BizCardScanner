@@ -467,7 +467,10 @@
       display: flex;
     }
     .tour-card {
-      position: relative;
+      position: fixed;
+      left: 50%;
+      top: 20px;
+      transform: translateX(-50%);
       width: min(440px, calc(100vw - 24px));
       background: white;
       border-radius: 24px;
@@ -476,6 +479,8 @@
       animation: popIn 0.2s ease;
       pointer-events: auto;
       z-index: 3100;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
     }
     .tour-step-badge {
       display: inline-block;
@@ -757,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 2.3</small></h1>
+  <h1>🪪 BizCard <small>Beta 2.4</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -2859,11 +2864,28 @@
     const tourBtn = document.getElementById('tourBtn');
     const tourDots = document.getElementById('tourDots');
     const tourClose = document.getElementById('tourClose');
+    const tourCard = document.querySelector('.tour-card');
     const tourDontShowAgain = document.getElementById('tourDontShowAgain');
     const TOUR_HIDE_KEY = 'bizCardScannerTourHidden';
 
     function shouldAutoShowTour() {
       return !localStorage.getItem(TOUR_HIDE_KEY);
+    }
+
+    function positionTourCard(target) {
+      if (!target || !tourCard) return;
+
+      const targetRect = target.getBoundingClientRect();
+      const cardHeight = tourCard.offsetHeight || 220;
+      const margin = 18;
+      const viewportHeight = window.innerHeight;
+
+      const targetIsLowerHalf = targetRect.top > viewportHeight * 0.5;
+      const top = targetIsLowerHalf
+        ? Math.max(margin, targetRect.top - cardHeight - 16)
+        : Math.min(viewportHeight - cardHeight - margin, targetRect.bottom + 16);
+
+      tourCard.style.top = `${Math.max(margin, Math.min(top, viewportHeight - cardHeight - margin))}px`;
     }
 
     function getTourTarget(selector) {
@@ -2897,6 +2919,7 @@
       if (target) {
         target.classList.add('tour-target-highlight');
         target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        setTimeout(() => positionTourCard(target), 120);
       }
 
       tourTitle.textContent = step.title;
