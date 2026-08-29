@@ -762,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 1.0.2</small></h1>
+  <h1>🪪 BizCard <small>Beta 1.0.3</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -1826,43 +1826,98 @@
     
     function parseVCard(vcardStr, base64Image) {
       const card = createEmptyCard();
-      const lines = vcardStr.split(/\r?\n/);
+      const lines = vcardStr.split(/\r?\n/).filter(Boolean).map(line => line.trim());
+
       for (let line of lines) {
-        const upper = line.toUpperCase();
-        if (upper.startsWith('FN:')) {
-          card.name = line.substring(3).trim();
-        } else if (upper.startsWith('N:')) {
-          const parts = line.substring(2).split(';');
-          if (parts.length >= 2) {
-            const lastName = parts[0] || '';
-            const firstName = parts[1] || '';
-            card.name = (firstName + ' ' + lastName).trim() || card.name;
+        const colonIndex = line.indexOf(':');
+        if (colonIndex < 0) continue;
+
+        const rawKey = line.substring(0, colonIndex).toUpperCase();
+        const value = line.substring(colonIndex + 1).trim();
+        const key = rawKey.split(';')[0];
+        const cleanedValue = value
+          .replace(/\\n/g, ' ')
+          .replace(/\\;/g, ';')
+          .replace(/\\,/g, ',')
+          .trim();
+
+        if (!cleanedValue) continue;
+
+        if (key === 'FN') {
+          card.name = cleanedValue;
+        } else if (key === 'N') {
+          const parts = cleanedValue.split(';');
+          const lastName = parts[0] || '';
+          const firstName = parts[1] || '';
+          const middleName = parts[2] || '';
+          const name = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+          if (name) card.name = name;
+        } else if (key === 'EMAIL') {
+          if (!card.email) card.email = cleanedValue;
+        } else if (key === 'TEL') {
+          const type = rawKey.toUpperCase();
+          if (type.includes('CELL') || type.includes('MOBILE')) {
+            if (!card.mobile) card.mobile = cleanedValue;
+          } else if (type.includes('FAX')) {
+            if (!card.fax) card.fax = cleanedValue;
+          } else if (!card.phone) {
+            card.phone = cleanedValue;
           }
-        } else if (upper.startsWith('EMAIL')) {
-          const emailMatch = line.match(/:([^:]+)$/);
-          if (emailMatch) card.email = emailMatch[1].trim();
-        } else if (upper.includes('TEL') && upper.includes('WORK') && !card.phone) {
-          const telMatch = line.match(/:([^:]+)$/);
-          if (telMatch) card.phone = telMatch[1].trim();
-        } else if (upper.includes('TEL') && upper.includes('CELL') && !card.mobile) {
-          const telMatch = line.match(/:([^:]+)$/);
-          if (telMatch) card.mobile = telMatch[1].trim();
-        } else if (upper.includes('TEL') && upper.includes('FAX') && !card.fax) {
-          const telMatch = line.match(/:([^:]+)$/);
-          if (telMatch) card.fax = telMatch[1].trim();
-        } else if (upper.startsWith('ORG:')) {
-          card.company = line.substring(4).trim();
-        } else if (upper.startsWith('ADR') || upper.startsWith('ADR;')) {
-          const addrMatch = line.match(/:([^:]+)$/);
-          if (addrMatch) {
-            const addrParts = addrMatch[1].split(';');
-            const addrStr = addrParts.filter(p => p.trim()).join(', ');
-            if (addrStr) card.address = addrStr;
-          }
-        } else if (upper.startsWith('TITLE:')) {
-          card.title = line.substring(6).trim();
+        } else if (key === 'ORG') {
+          card.company = cleanedValue;
+        } else if (key === 'TITLE') {
+          card.title = cleanedValue;
+        } else if (key === 'ADR') {
+          const addrParts = cleanedValue.split(';').filter(p => p.trim());
+          const addr = addrParts.join(', ').trim();
+          if (addr) card.address = addr;
         }
       }
+
+      const fallback = extractAll(vcardStr, base64Image);
+      if (!card.name && fallback.name) card.name = fallback.name;
+      if (!card.email && fallback.email) card.email = fallback.email;
+      if (!card.phone && fallback.phone) card.phone = fallback.phone;
+      if (!card.mobile && fallback.mobile) card.mobile = fallback.mobile;
+      if (!card.company && fallback.company) card.company = fallback.company;
+      if (!card.title && fallback.title) card.title = fallback.title;
+      if (!card.address && fallback.address) card.address = fallback.address;
+
+      if (base64Image) {
+        card.base64Image = base64Image;
+        currentBase64Image = base64Image;
+      }
+      return card;
+    }
+
+    function parseMeCard(meCardStr, base64Image) {
+      const card = createEmptyCard();
+      const payload = meCardStr.replace(/^MECARD:/i, '').trim();
+      const parts = payload.split(';').filter(Boolean);
+
+      for (let part of parts) {
+        const idx = part.indexOf(':');
+        if (idx < 0) continue;
+        const key = part.substring(0, idx).toUpperCase();
+        const value = part.substring(idx + 1).trim();
+
+        if (!value) continue;
+
+        if (key === 'N') {
+          const [last, first] = value.split(',').map(s => s.trim());
+          const name = [first, last].filter(Boolean).join(' ');
+          if (name) card.name = name;
+        } else if (key === 'FN') {
+          card.name = value;
+        } else if (key === 'EMAIL') {
+          card.email = value;
+        } else if (key === 'TEL') {
+          card.phone = value;
+        } else if (key === 'ORG') {
+          card.company = value;
+        }
+      }
+
       if (base64Image) {
         card.base64Image = base64Image;
         currentBase64Image = base64Image;
@@ -2265,9 +2320,19 @@
         
         let cardData;
         let rawText = code.data;
-        
-        if (code.data.toLowerCase().includes('begin:vcard')) {
-          cardData = parseVCard(code.data, base64);
+        const normalizedQr = String(code.data || '').replace(/\r/g, '');
+        const isVCardLike = /BEGIN:VCARD|MECARD:|(?:^|\n|\r)FN:|(?:^|\n|\r)N:|(?:^|\n|\r)EMAIL:|(?:^|\n|\r)ORG:/i.test(normalizedQr);
+
+        if (isVCardLike) {
+          if (/MECARD:/i.test(normalizedQr)) {
+            cardData = parseMeCard(normalizedQr, base64);
+          } else {
+            cardData = parseVCard(normalizedQr, base64);
+          }
+
+          if (!cardData || (!cardData.name && !cardData.email && !cardData.phone && !cardData.mobile && !cardData.company)) {
+            cardData = extractAll(code.data, base64);
+          }
         } else {
           const jsonCard = parseJsonCard(code.data, base64);
           if (jsonCard && Object.values(jsonCard).some(v => v && v.trim().length > 0)) {
