@@ -595,7 +595,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 1.6</small></h1>
+  <h1>🪪 BizCard <small>Beta 1.7</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -813,16 +813,14 @@
 
         const projectNameField = document.getElementById('hdnProjectName');
         const userEmailField = document.getElementById('hdnUserEmail');
-        const projectName = projectNameField ? projectNameField.value : '';
-        const userEmail = userEmailField ? userEmailField.value : '';
 
         const data = {
           //timestamp: new Date().toISOString(),
           timestamp: new Date().toLocaleString("sv-SE", {
               timeZone: "Asia/Singapore"
           }),
-          projectName: projectName,
-          userEmail: userEmail,
+          projectName: projectNameField.value || '-',
+          userEmail: userEmailField.value || '-',
           name: lastJsonData.name || '',
           email: lastJsonData.email || '',
           phone: lastJsonData.phone || '',
@@ -849,7 +847,7 @@
         const modeLabel = currentMode === 'photo' ? '📸 Photo' : '📇 Card';
         setStatus(`✅ ${modeLabel} data saved to Google Sheet!`);
         
-        showSaveConfirmation(lastJsonData.name || 'Photo', lastJsonData.email || '', currentMode);
+        //showSaveConfirmation(lastJsonData.name || 'Photo', lastJsonData.email || '', currentMode);
         
       } catch (error) {
         console.error('Save error:', error);
