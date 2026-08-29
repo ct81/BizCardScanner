@@ -507,6 +507,21 @@
       gap: 12px;
       margin-top: 20px;
     }
+    .tour-dont-show {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      color: #47607a;
+      font-size: 0.8rem;
+      user-select: none;
+    }
+    .tour-dont-show input {
+      width: 16px;
+      height: 16px;
+      accent-color: #0b3b2a;
+      cursor: pointer;
+    }
     .tour-close {
       position: absolute;
       top: 14px;
@@ -742,7 +757,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 2.1</small></h1>
+  <h1>🪪 BizCard <small>Beta 2.3</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -784,7 +799,7 @@
   </div>
 
   <div class="controls">
-    <button class="btn btn-primary" id="scanBtn">📷 Scan</button>
+    <button class="btn btn-primary" id="scanBtn">📷 Capture</button>
     <button class="btn btn-photo" id="photoBtn" style="display:none;">📸 Take Photo</button>
     <button class="btn btn-save" id="saveBtn">💾 Save</button>
     <button class="btn btn-outline" id="resetBtn">↻ Clear</button>
@@ -838,6 +853,10 @@
     <h3 id="tourTitle">Choose a mode</h3>
     <p id="tourText">Select OCR mode to scan a business card, QR mode to read a QR code, or Photo mode to capture a picture.</p>
     <div class="tour-dots" id="tourDots"></div>
+    <label class="tour-dont-show" for="tourDontShowAgain">
+      <input type="checkbox" id="tourDontShowAgain">
+      <span>Don't show again</span>
+    </label>
     <div class="tour-actions">
       <button class="tour-btn secondary" id="tourPrev" type="button">Back</button>
       <div class="tour-nav">
@@ -2127,7 +2146,7 @@
         detectBadge.textContent = '🔵 OCR mode';
         detectBadge.classList.add('detected');
         scanBtn.style.display = 'flex';
-        scanBtn.textContent = '📷 Scan now';
+        scanBtn.textContent = '📷 Capture';
         photoBtn.style.display = 'none';
         document.querySelector('.scan-toggle-group').style.display = 'flex';
         setStatus('OCR mode · align card in blue frame, tap Scan or enable Auto');
@@ -2143,7 +2162,7 @@
         detectBadge.textContent = '🟡 QR mode';
         detectBadge.classList.add('detected');
         scanBtn.style.display = 'flex';
-        scanBtn.textContent = '📱 Scan QR';
+        scanBtn.textContent = '📱 Capture';
         photoBtn.style.display = 'none';
         document.querySelector('.scan-toggle-group').style.display = 'flex';
         setStatus('QR mode · align QR code in frame, tap Scan QR or enable Auto');
@@ -2195,7 +2214,7 @@
       scanAuto.checked = false;
       scanModeStatus.textContent = 'Mode: Manual (QR)';
       scanBtn.style.display = 'flex';
-      scanBtn.textContent = '📱 Scan QR';
+      scanBtn.textContent = '📱 Capture';
       setStatus('QR mode · align QR code in frame, tap Scan QR or enable Auto');
     }
 
@@ -2521,7 +2540,7 @@
       scanAuto.checked = false;
       scanModeStatus.textContent = 'Mode: Manual (OCR)';
       scanBtn.style.display = 'flex';
-      scanBtn.textContent = '📷 Scan now';
+      scanBtn.textContent = '📷 Capture';
       setStatus('OCR mode · align card in blue frame, tap Scan or enable Auto');
     }
 
@@ -2534,13 +2553,13 @@
           if (isAutoScanning) stopAutoScan();
           scanModeStatus.textContent = 'Mode: Manual (OCR)';
           scanBtn.style.display = 'flex';
-          scanBtn.textContent = '📷 Scan now';
+          scanBtn.textContent = '📷 Capture';
           setStatus('OCR mode · align card in blue frame, tap Scan');
         } else if (currentMode === 'qr') {
           if (isQrAutoScanning) stopQrAutoScan();
           scanModeStatus.textContent = 'Mode: Manual (QR)';
           scanBtn.style.display = 'flex';
-          scanBtn.textContent = '📱 Scan QR';
+          scanBtn.textContent = '📱 Capture';
           setStatus('QR mode · align QR code in frame, tap Scan QR');
         }
       }
@@ -2821,7 +2840,7 @@
       },
       {
         title: 'Camera scan',
-        text: 'Point the camera at the card or QR code, then press Scan to capture the item. Use the frame to align it correctly.',
+        text: 'Point the camera at the card or QR code, then press capture. Use the frame to align it correctly.',
         target: '#scanBtn'
       },
       {
@@ -2840,6 +2859,12 @@
     const tourBtn = document.getElementById('tourBtn');
     const tourDots = document.getElementById('tourDots');
     const tourClose = document.getElementById('tourClose');
+    const tourDontShowAgain = document.getElementById('tourDontShowAgain');
+    const TOUR_HIDE_KEY = 'bizCardScannerTourHidden';
+
+    function shouldAutoShowTour() {
+      return !localStorage.getItem(TOUR_HIDE_KEY);
+    }
 
     function getTourTarget(selector) {
       if (!selector) return null;
@@ -2884,6 +2909,10 @@
     }
 
     function startTour() {
+      if (tourDontShowAgain) {
+        tourDontShowAgain.checked = localStorage.getItem(TOUR_HIDE_KEY) === '1';
+      }
+
       let currentTourIndex = 0;
       tourOverlay.classList.add('active');
       showTourStep(currentTourIndex);
@@ -2906,6 +2935,13 @@
     }
 
     function closeTour() {
+      const shouldHideTour = tourDontShowAgain && tourDontShowAgain.checked;
+      if (shouldHideTour) {
+        localStorage.setItem(TOUR_HIDE_KEY, '1');
+      } else {
+        localStorage.removeItem(TOUR_HIDE_KEY);
+      }
+
       clearTourHighlight();
       tourOverlay.classList.remove('active');
     }
@@ -2922,7 +2958,9 @@
       }
     });
 
-    setTimeout(() => startTour(), 900);
+    if (shouldAutoShowTour()) {
+      setTimeout(() => startTour(), 900);
+    }
 
     copyBtn.addEventListener('click', () => {
       const textToCopy = showRawToggle.checked && lastRawText ? lastRawText : (lastJsonData ? JSON.stringify(lastJsonData, null, 2) : '');
