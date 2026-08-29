@@ -762,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Ver 1.0.0</small></h1>
+  <h1>🪪 BizCard <small>Ver 1.0.1</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -2363,14 +2363,16 @@
         const name = cardData.name || '';
         const email = cardData.email || '';
         const qrValue = String(code.data || '').trim();
-        const shouldSaveQrNow = isQrAutoScanning || manualQrCaptureRequested;
         const isNewQrValue = qrValue && qrValue !== lastSavedQrValue;
+        const shouldSaveQrNow = manualQrCaptureRequested || (isQrAutoScanning && isNewQrValue);
 
-        if (shouldSaveQrNow && isNewQrValue && isValidName(name) && isValidEmail(email)) {
+        if (shouldSaveQrNow && isValidName(name) && isValidEmail(email)) {
           saveToGoogleSheet();
           showPopup(name, email, base64);
           setStatus('✅ QR saved successfully');
-          lastSavedQrValue = qrValue;
+          if (qrValue) {
+            lastSavedQrValue = qrValue;
+          }
         } else if (isNewQrValue && qrValue) {
           lastSavedQrValue = qrValue;
         }
