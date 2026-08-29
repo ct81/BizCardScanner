@@ -762,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Ver 1.0.0</small></h1>
+  <h1>🪪 BizCard <small>Ver 1.0.1</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -936,6 +936,7 @@
     let isQrAutoScanning = false;
     let qrAutoScanInterval = null;
     let qrDetectedOnce = false;
+    let manualQrCaptureRequested = false;
     let currentBase64Image = '';
     
     let lastJsonData = null;
@@ -2358,10 +2359,13 @@
         
         const name = cardData.name || '';
         const email = cardData.email || '';
-        if (isQrAutoScanning && isValidName(name) && isValidEmail(email)) {
+        const shouldSaveQrNow = isQrAutoScanning || manualQrCaptureRequested;
+        if (shouldSaveQrNow && isValidName(name) && isValidEmail(email)) {
           saveToGoogleSheet();
           showPopup(name, email, base64);
+          setStatus('✅ QR saved successfully');
         }
+        manualQrCaptureRequested = false;
         
       } else {
         qrFrame.classList.remove('detected');
@@ -2758,6 +2762,7 @@
       }
 
       if (currentMode === 'qr') {
+        manualQrCaptureRequested = !isQrAutoScanning;
         detectQrCode();
         return;
       }
