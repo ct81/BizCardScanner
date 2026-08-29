@@ -427,158 +427,6 @@
       color: #0b1b33;
     }
 
-    .tour-button {
-      margin: 0 0 18px auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      border: 1px solid #cbd5e1;
-      background: #eef6ff;
-      color: #0b1b33;
-      border-radius: 999px;
-      padding: 10px 16px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: 0.2s ease;
-      box-shadow: 0 4px 10px rgba(59, 130, 246, 0.08);
-    }
-    .tour-button:hover {
-      background: #e0f2fe;
-    }
-
-    .tour-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(11, 27, 51, 0.58);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      z-index: 2000;
-    }
-    .tour-overlay.active {
-      display: flex;
-    }
-    .tour-card {
-      position: relative;
-      width: min(440px, 100%);
-      background: white;
-      border-radius: 24px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.22);
-      padding: 24px 22px 18px;
-      animation: popIn 0.2s ease;
-    }
-    .tour-step-badge {
-      display: inline-block;
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      margin-bottom: 14px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .tour-card h3 {
-      margin: 0 0 10px;
-      font-size: 1.5rem;
-      color: #0b1b33;
-    }
-    .tour-card p {
-      margin: 0;
-      font-size: 0.96rem;
-      line-height: 1.7;
-      color: #475569;
-    }
-    .tour-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-top: 20px;
-    }
-    .tour-close {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 50%;
-      background: #f1f5f9;
-      color: #334155;
-      font-size: 1.15rem;
-      cursor: pointer;
-    }
-    .tour-nav {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .tour-btn {
-      border: none;
-      border-radius: 999px;
-      padding: 10px 18px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.2s ease;
-    }
-    .tour-btn.secondary {
-      background: #e2e8f0;
-      color: #0b1b33;
-    }
-    .tour-btn.primary {
-      background: #0b3b2a;
-      color: white;
-    }
-    .tour-btn:active {
-      transform: scale(0.98);
-    }
-    .tour-dots {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      justify-content: center;
-      margin-top: 6px;
-    }
-    .tour-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-      color: #475569;
-      margin-top: 14px;
-      user-select: none;
-    }
-    .tour-checkbox input {
-      accent-color: #2563eb;
-    }
-    .tour-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 999px;
-      background: #cbd5e1;
-      display: inline-block;
-    }
-    .tour-dot.active {
-      background: #2563eb;
-      width: 24px;
-    }
-    .tour-target-highlight {
-      position: relative;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.24), 0 0 0 999px rgba(15, 23, 42, 0.22);
-      border-radius: 16px;
-      z-index: 2100;
-      animation: tourPulse 1.3s ease-in-out infinite;
-    }
-    @keyframes tourPulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.24), 0 0 0 999px rgba(15, 23, 42, 0.22); }
-      50% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.38), 0 0 0 999px rgba(15, 23, 42, 0.18); }
-    }
-
     /* Popup styles */
     .popup-overlay {
       display: none;
@@ -746,12 +594,8 @@
         <input type="hidden" ID="hdnDefaultModel" />
     </div>
 
-<div style="display:flex;justify-content:flex-end;">
-  <button class="tour-button" id="tourBtn" type="button">❓ Quick Tour</button>
-</div>
-
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 1.9</small></h1>
+  <h1>🪪 BizCard <small>Beta 1.7</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -837,25 +681,6 @@
     
     <button class="btn-copy-base64" id="copyBase64Btn">📋 Copy Base64 String</button>
     <button class="btn-close" id="popupClose">OK, Got it!</button>
-  </div>
-</div>
-
-<div class="tour-overlay" id="tourOverlay" aria-hidden="true">
-  <div class="tour-card">
-    <button class="tour-close" id="tourClose" type="button" aria-label="Close tour">×</button>
-    <div class="tour-step-badge" id="tourStepBadge">Step 1</div>
-    <h3 id="tourTitle">Choose a mode</h3>
-    <p id="tourText">Select OCR mode to scan a business card, QR mode to read a QR code, or Photo mode to capture a picture.</p>
-    <div class="tour-dots" id="tourDots"></div>
-    <label class="tour-checkbox">
-      <input type="checkbox" id="tourDontShowAgain"> Don’t show again
-    </label>
-    <div class="tour-actions">
-      <button class="tour-btn secondary" id="tourPrev" type="button">Back</button>
-      <div class="tour-nav">
-        <button class="tour-btn primary" id="tourNext" type="button">Next</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -2815,127 +2640,6 @@
       if (isQrAutoScanning) stopQrAutoScan();
     }
 
-    // ============================================================
-    //  🧭 QUICK TOUR
-    // ============================================================
-    const tourSteps = [
-      {
-        title: 'Choose a mode',
-        text: 'Select OCR mode to scan a business card, QR mode to read a QR code, or Photo mode to capture an image.',
-        target: '.mode-toggle'
-      },
-      {
-        title: 'Align and scan',
-        text: 'Point your camera at the card or QR code and click Scan. You can also switch to Auto mode for quicker capture.',
-        target: '#scanBtn'
-      },
-      {
-        title: 'Review and save',
-        text: 'Check the extracted data, then click Save to send the record to Google Sheets. Use Copy to copy the output if needed.',
-        target: '#saveBtn'
-      }
-    ];
-
-    const tourOverlay = document.getElementById('tourOverlay');
-    const tourTitle = document.getElementById('tourTitle');
-    const tourText = document.getElementById('tourText');
-    const tourStepBadge = document.getElementById('tourStepBadge');
-    const tourNext = document.getElementById('tourNext');
-    const tourPrev = document.getElementById('tourPrev');
-    const tourBtn = document.getElementById('tourBtn');
-    const tourDots = document.getElementById('tourDots');
-    const tourClose = document.getElementById('tourClose');
-    const tourDontShowAgain = document.getElementById('tourDontShowAgain');
-
-    function getTourTarget(selector) {
-      if (!selector) return null;
-      if (selector.startsWith('.')) return document.querySelector(selector);
-      if (selector.startsWith('#')) return document.getElementById(selector.substring(1));
-      return document.getElementById(selector) || document.querySelector(`label[for="${selector}"]`) || document.querySelector(`.${selector}`);
-    }
-
-    function clearTourHighlight() {
-      document.querySelectorAll('.tour-target-highlight').forEach(el => {
-        el.classList.remove('tour-target-highlight');
-      });
-    }
-
-    function renderTourDots(total, activeIndex) {
-      tourDots.innerHTML = '';
-      for (let i = 0; i < total; i++) {
-        const dot = document.createElement('span');
-        dot.className = 'tour-dot' + (i === activeIndex ? ' active' : '');
-        tourDots.appendChild(dot);
-      }
-    }
-
-    function showTourStep(index) {
-      const step = tourSteps[index];
-      if (!step) return;
-
-      clearTourHighlight();
-      const target = getTourTarget(step.target);
-      if (target) {
-        target.classList.add('tour-target-highlight');
-        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      }
-
-      tourTitle.textContent = step.title;
-      tourText.textContent = step.text;
-      tourStepBadge.textContent = `Step ${index + 1}`;
-      renderTourDots(tourSteps.length, index);
-
-      tourPrev.style.visibility = index === 0 ? 'hidden' : 'visible';
-      tourNext.textContent = index === tourSteps.length - 1 ? 'Done' : 'Next';
-    }
-
-    function startTour() {
-      let currentTourIndex = 0;
-      tourOverlay.classList.add('active');
-      showTourStep(currentTourIndex);
-
-      tourNext.onclick = () => {
-        if (currentTourIndex < tourSteps.length - 1) {
-          currentTourIndex += 1;
-          showTourStep(currentTourIndex);
-        } else {
-          closeTour();
-        }
-      };
-
-      tourPrev.onclick = () => {
-        if (currentTourIndex > 0) {
-          currentTourIndex -= 1;
-          showTourStep(currentTourIndex);
-        }
-      };
-    }
-
-    function closeTour() {
-      clearTourHighlight();
-      tourOverlay.classList.remove('active');
-      if (window.localStorage) {
-        localStorage.setItem('bizcard-tour-seen', tourDontShowAgain && tourDontShowAgain.checked ? 'true' : 'false');
-      }
-    }
-
-    if (tourBtn) {
-      tourBtn.addEventListener('click', startTour);
-    }
-    if (tourClose) {
-      tourClose.addEventListener('click', closeTour);
-    }
-    tourOverlay.addEventListener('click', (event) => {
-      if (event.target === tourOverlay) {
-        closeTour();
-      }
-    });
-
-    const tourSeen = window.localStorage ? localStorage.getItem('bizcard-tour-seen') : null;
-    if (!tourSeen || tourSeen === 'false') {
-      setTimeout(() => startTour(), 900);
-    }
-
     copyBtn.addEventListener('click', () => {
       const textToCopy = showRawToggle.checked && lastRawText ? lastRawText : (lastJsonData ? JSON.stringify(lastJsonData, null, 2) : '');
       if (textToCopy) {
@@ -2955,7 +2659,6 @@
     window.addEventListener('load', async () => {
       await startCamera();
     });
-
 
     window.addEventListener('beforeunload', () => {
       if (detectionInterval) clearInterval(detectionInterval);
