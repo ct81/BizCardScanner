@@ -812,7 +812,10 @@
         saveBtn.disabled = true;
 
         const data = {
-          timestamp: new Date().toISOString(),
+          //timestamp: new Date().toISOString(),
+          timestamp: new Date().toLocaleString("sv-SE", {
+              timeZone: "Asia/Singapore"
+          }),
           name: lastJsonData.name || '',
           email: lastJsonData.email || '',
           phone: lastJsonData.phone || '',
@@ -2436,7 +2439,10 @@
         const base64 = captureCanvas.toDataURL('image/jpeg', 0.95);
         
         const photoData = {
-          timestamp: new Date().toISOString(),
+          //timestamp: new Date().toISOString(),
+          timestamp: new Date().toLocaleString("sv-SE", {
+              timeZone: "Asia/Singapore"
+          }),
           base64Image: base64
         };
         
