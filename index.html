@@ -762,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Ver 1.0.1</small></h1>
+  <h1>🪪 BizCard <small>Ver 1.0.0</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -937,6 +937,7 @@
     let qrAutoScanInterval = null;
     let qrDetectedOnce = false;
     let manualQrCaptureRequested = false;
+    let lastSavedQrValue = '';
     let currentBase64Image = '';
     
     let lastJsonData = null;
@@ -2200,6 +2201,7 @@
     function updateMode() {
       lastQrResult = '';
       qrDetectedOnce = false;
+      lastSavedQrValue = '';
       
       if (isQrAutoScanning) {
         stopQrAutoScan();
@@ -2258,6 +2260,7 @@
       if (isQrAutoScanning) return;
       if (currentMode !== 'qr') return;
       
+      lastSavedQrValue = '';
       isQrAutoScanning = true;
       scanAuto.checked = true;
       scanManual.checked = false;
@@ -2359,12 +2362,19 @@
         
         const name = cardData.name || '';
         const email = cardData.email || '';
+        const qrValue = String(code.data || '').trim();
         const shouldSaveQrNow = isQrAutoScanning || manualQrCaptureRequested;
-        if (shouldSaveQrNow && isValidName(name) && isValidEmail(email)) {
+        const isNewQrValue = qrValue && qrValue !== lastSavedQrValue;
+
+        if (shouldSaveQrNow && isNewQrValue && isValidName(name) && isValidEmail(email)) {
           saveToGoogleSheet();
           showPopup(name, email, base64);
           setStatus('✅ QR saved successfully');
+          lastSavedQrValue = qrValue;
+        } else if (isNewQrValue && qrValue) {
+          lastSavedQrValue = qrValue;
         }
+
         manualQrCaptureRequested = false;
         
       } else {
