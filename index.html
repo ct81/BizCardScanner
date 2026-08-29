@@ -762,7 +762,7 @@
     </div>
 
 <div class="container">
-  <h1>🪪 BizCard <small>Beta 1.0.3</small></h1>
+  <h1>🪪 BizCard <small>Ver 1.0.0</small></h1>
   <div class="sub">
     <span class="badge-detect" id="detectBadge">⚪ ready</span>
   </div>
@@ -968,6 +968,11 @@
         title: '',
         base64Image: ''
       };
+    }
+
+    function hasContactData(card) {
+      if (!card) return false;
+      return !!Object.values(card).some(v => v && String(v).trim().length > 0);
     }
 
     function formatJson(jsonObj) {
@@ -2343,11 +2348,17 @@
         }
         displayResult(cardData, rawText);
         const count = Object.values(cardData).filter(v => v && v.trim().length > 0).length;
+
+        if (count === 0) {
+          setStatus('⚠️ QR detected, but the vCard has no contact details.');
+          return;
+        }
+
         setStatus(`✅ QR detected · ${count} fields`);
         
         const name = cardData.name || '';
         const email = cardData.email || '';
-        if (isValidName(name) && isValidEmail(email)) {
+        if (isQrAutoScanning && isValidName(name) && isValidEmail(email)) {
           saveToGoogleSheet();
           showPopup(name, email, base64);
         }
